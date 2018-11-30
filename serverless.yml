@@ -79,6 +79,7 @@ functions:
     - http:
         path: user
         method: delete
+        cors: true
 
   addItemWatch:
     handler: com.eve.marketwatch.AddItemWatchHandler
