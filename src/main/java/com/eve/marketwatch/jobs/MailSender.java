@@ -3,6 +3,8 @@ package com.eve.marketwatch.jobs;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.eve.marketwatch.api.ApiGatewayResponse;
+import com.eve.marketwatch.exceptions.MailFailed;
+import com.eve.marketwatch.model.dao.UserRepository;
 import com.eve.marketwatch.service.EveAuthService;
 import com.eve.marketwatch.exceptions.BadRequestException;
 import com.eve.marketwatch.model.eveauth.AccessTokenResponse;
@@ -30,6 +32,7 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 	private final javax.ws.rs.client.Client webClient = ClientBuilder.newClient();
 	private final EveAuthService eveAuthService;
 	private final MailRepository mailRepository;
+	private final UserRepository userRepository;
 	private final int mailCharacterId;
 	private final String mailClientId;
 	private final String mailSecret;
@@ -42,11 +45,13 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 		mailSecret = System.getenv("MAIL_CLIENT_SECRET");
 		mailRefreshToken = System.getenv("MAIL_REFRESH_TOKEN");
 		eveAuthService = new EveAuthService();
+		userRepository = UserRepository.getInstance();
 	}
 
-	MailSender(EveAuthService eveAuthService, MailRepository mailRepository, int mailCharacterId, String mailClientId, String mailSecret, String mailRefreshToken) {
+	MailSender(EveAuthService eveAuthService, MailRepository mailRepository, UserRepository userRepository, int mailCharacterId, String mailClientId, String mailSecret, String mailRefreshToken) {
 		this.eveAuthService = eveAuthService;
 		this.mailRepository = mailRepository;
+		this.userRepository = userRepository;
 		this.mailCharacterId = mailCharacterId;
 		this.mailClientId = mailClientId;
 		this.mailSecret = mailSecret;
@@ -57,14 +62,29 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 	public ApiGatewayResponse handleRequest(Map<String, Object> input, Context context) {
 		LOG.info("received: {}", input);
 
-		doSend();
+		try {
+			doSend();
+		} catch (final MailFailed mailFailed) {
+			updateUserErrors(mailFailed);
+		}
 
 		return ApiGatewayResponse.builder()
 				.setStatusCode(200)
 				.build();
 	}
 
-	void doSend() {
+	private void updateUserErrors(MailFailed mailFailed) {
+		userRepository.find(mailFailed.getRecipientId()).ifPresent(user -> {
+			user.incrementErrorCount();
+			userRepository.save(user);
+			if (user.getErrorCount() >= 5) {
+				userRepository.delete(user);
+				LOG.warn(user.getCharacterId() + " has been deleted due to too many client errors.");
+			}
+		});
+	}
+
+	void doSend() throws MailFailed {
 		final List<Mail> mails = mailRepository.findByStatus(MailStatus.NEW);
 		if (mails.isEmpty()) {
 			LOG.info("No new mails to be sent.");
@@ -87,7 +107,7 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 		return mailRequest;
 	}
 
-	private void submitMailRequest(final MailRequest mailRequest) {
+	private void submitMailRequest(final MailRequest mailRequest) throws MailFailed {
 		final AccessTokenResponse accessTokenResponse;
 		try {
 			accessTokenResponse = eveAuthService.generateAccessToken(mailRefreshToken, mailClientId, mailSecret);
@@ -108,8 +128,7 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 		LOG.info(json);
 
 		if (mailResponse.getStatus() != 201) {
-			// todo: if the character has cspa, disable something
-			throw new RuntimeException("Failed to send mail: " + json);
+			throw new MailFailed(mailResponse.getStatus(), mailRequest.getRecipients().get(0).getRecipientId());
 		}
 	}
 }
