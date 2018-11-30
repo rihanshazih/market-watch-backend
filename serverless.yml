@@ -1,0 +1,160 @@
+# Welcome to Serverless!
+#
+# This file is the main config file for your service.
+# It's very minimal at this point and uses default values.
+# You can always add more config options for more control.
+# We've included some commented out config examples here.
+# Just uncomment any of them to get that config option.
+#
+# For full config options, check the docs:
+#    docs.serverless.com
+#
+# Happy Coding!
+
+service: market-watch
+
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+# frameworkVersion: "=X.X.X"
+
+plugins:
+  - serverless-plugin-warmup
+
+custom:
+  warmup:
+    default: true
+    folderName: '_warmup' # Name of the folder created for the generated warmup
+    cleanFolder: false
+    memorySize: 256
+    name: 'make-them-pop'
+    schedule: rate(10 minutes)
+    timeout: 20
+    prewarm: true
+
+provider:
+  name: aws
+  stage: ${opt:stage, 'dev'}
+  runtime: java8
+  timeout: 600
+  environment:
+    JWT_SECRET: ${file(./config.${self:provider.stage}.json):jwtSecret}
+    APP_CLIENT_ID: ${file(./config.${self:provider.stage}.json):appClientId}
+    APP_CLIENT_SECRET: ${file(./config.${self:provider.stage}.json):appClientSecret}
+    REGION: ${opt:region, self:provider.region}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:DescribeTable
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: "arn:aws:dynamodb:us-east-1:*:*"
+    - Effect: 'Allow'
+      Action:
+        - 'lambda:InvokeFunction'
+      Resource:
+        - Fn::Join:
+            - ':'
+            - - arn:aws:lambda
+              - Ref: AWS::Region
+              - Ref: AWS::AccountId
+              - function:${self:service}-${opt:stage, self:provider.stage}-*
+
+package:
+  artifact: target/market-watch-1.0.jar
+
+functions:
+  login:
+    handler: com.eve.marketwatch.LoginHandler
+    events:
+    - http:
+        path: login
+        method: get
+  deleteUser:
+    handler: com.eve.marketwatch.DeleteUserHandler
+    events:
+    - http:
+        path: user
+        method: delete
+
+  addItemWatch:
+    handler: com.eve.marketwatch.AddItemWatchHandler
+    events:
+    - http:
+        path: itemwatch
+        method: put
+        cors: true
+  getItemWatches:
+    handler: com.eve.marketwatch.GetItemWatchesHandler
+    events:
+      - http:
+          path: itemwatch
+          method: get
+          cors: true
+  deleteItemWatch:
+    handler: com.eve.marketwatch.DeleteItemWatchHandler
+    events:
+      - http:
+          path: itemwatch/{id}
+          method: delete
+          cors: true
+  searchItem:
+    handler: com.eve.marketwatch.ItemSearchHandler
+    events:
+    - http:
+        path: search
+        method: get
+  searchStructure:
+#    todo: merge me with searchItem, e.g. one search handler that can be modified with a query param
+    handler: com.eve.marketwatch.StructureSearchHandler
+    events:
+      - http:
+          path: search-structure
+          method: get
+  getStructureDetails:
+    #    todo: merge me with searchItem, e.g. one search handler that can be modified with a query param
+    handler: com.eve.marketwatch.StructureDetailsHandler
+    events:
+      - http:
+          path: structure/id
+          method: get
+
+  bulkMail:
+    handler: com.eve.marketwatch.BulkNotificationHandler
+    events:
+      - http:
+          path: admin/bulk
+          method: post
+    warmup: false
+    environment:
+      ADMIN_CHARACTER_ID: ${file(./config.${self:provider.stage}.json):adminCharacterId}
+
+  parseMarket:
+    handler: com.eve.marketwatch.jobs.MarketParser
+    events:
+      - schedule: cron(30 * * * ? *)
+    warmup: false
+  checkWatches:
+    handler: com.eve.marketwatch.jobs.WatchChecker
+    events:
+      - schedule: cron(35 * * * ? *)
+    warmup: false
+  createNotification:
+    handler: com.eve.marketwatch.jobs.NotificationCreater
+    events:
+      - schedule: cron(40 * * * ? *)
+    warmup: false
+  sendMails:
+    handler: com.eve.marketwatch.jobs.MailSender
+    events:
+      - schedule: rate(1 minute)
+    warmup: false
+    environment:
+      MAIL_CHARACTER_ID: ${file(./config.${self:provider.stage}.json):adminCharacterId}
+      MAIL_CLIENT_ID: ${file(./config.${self:provider.stage}.json):mailClientId}
+      MAIL_CLIENT_SECRET: ${file(./config.${self:provider.stage}.json):mailClientSecret}
+      MAIL_REFRESH_TOKEN: ${file(./config.${self:provider.stage}.json):mailRefreshToken}
+

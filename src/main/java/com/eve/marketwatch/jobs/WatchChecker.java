@@ -1,0 +1,84 @@
+package com.eve.marketwatch.jobs;
+
+import com.amazonaws.services.lambda.runtime.Context;
+import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.eve.marketwatch.ApiGatewayResponse;
+import com.eve.marketwatch.model.ItemSnapshot;
+import com.eve.marketwatch.model.ItemSnapshotRepository;
+import com.eve.marketwatch.model.ItemWatch;
+import com.eve.marketwatch.model.ItemWatchRepository;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.util.List;
+import java.util.Map;
+
+public class WatchChecker implements RequestHandler<Map<String, Object>, ApiGatewayResponse> {
+
+	private static final Logger LOG = LogManager.getLogger(WatchChecker.class);
+
+	private final ItemWatchRepository itemWatchRepository;
+	private final ItemSnapshotRepository itemSnapshotRepository;
+
+	public WatchChecker() {
+		itemWatchRepository = ItemWatchRepository.getInstance();
+		itemSnapshotRepository = ItemSnapshotRepository.getInstance();
+	}
+
+	WatchChecker(ItemWatchRepository itemWatchRepository, ItemSnapshotRepository itemSnapshotRepository) {
+		this.itemWatchRepository = itemWatchRepository;
+		this.itemSnapshotRepository = itemSnapshotRepository;
+	}
+
+	@Override
+	public ApiGatewayResponse handleRequest(Map<String, Object> input, Context context) {
+		LOG.info("received: {}", input);
+
+		doCheck();
+
+		return ApiGatewayResponse.builder()
+				.setStatusCode(200)
+				.build();
+	}
+
+	void doCheck() {
+		final List<ItemWatch> itemWatches = itemWatchRepository.findAll();
+		final List<ItemSnapshot> itemSnapshots = itemSnapshotRepository.findAll();
+
+		LOG.info("Checking " + itemWatches.size() + " watches against " + itemSnapshots.size() + " snapshots.");
+		for (final ItemWatch watch : itemWatches) {
+			checkWatch(itemSnapshots, watch);
+		}
+
+	}
+
+	private void checkWatch(List<ItemSnapshot> itemSnapshots, ItemWatch watch) {
+		for (ItemSnapshot snapshot : itemSnapshots) {
+			if (isSameLocationAndType(watch, snapshot)) {
+				if (snapshot.getAmount() < watch.getThreshold()) {
+					if (!watch.isTriggered()) {
+						LOG.info("Triggered watch: " + watch);
+						watch.setTriggered(true);
+					}
+					itemWatchRepository.save(watch);
+				} else if (watch.isTriggered() || watch.isMailSent()) {
+					LOG.info("Reset watch: " + watch);
+					watch.reset();
+				}
+				return;
+			}
+		}
+		handleMissingSnapshot(watch);
+	}
+
+	private void handleMissingSnapshot(ItemWatch watch) {
+		LOG.info("Snapshot is missing and therefore triggered: " + watch);
+		watch.setTriggered(true);
+		itemWatchRepository.save(watch);
+	}
+
+	private boolean isSameLocationAndType(ItemWatch watch, ItemSnapshot snapshot) {
+		return watch.getTypeId() == snapshot.getTypeId() && watch.getLocationId() == snapshot.getLocationId();
+	}
+
+}

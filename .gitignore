@@ -1,0 +1,23 @@
+*.class
+target
+/bin/
+/.settings/
+.project
+.classpath
+
+# Package Files
+*.jar
+*.war
+*.ear
+
+# Serverless directories
+.serverless
+
+.idea
+node_modules
+*.iml
+package-lock.json
+config.dev.json
+config.prod.json
+
+_warmup
