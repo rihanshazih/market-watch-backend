@@ -46,6 +46,7 @@ public class GetItemWatchesHandler implements RequestHandler<Map<String, Object>
 
 		final List<ItemWatch> itemWatches = itemWatchRepository.findByCharacterId(characterId)
 				.stream().filter(w -> w.getLocationId() == structureId)
+				.sorted((o1, o2) -> o1.getTypeName().compareToIgnoreCase(o2.getTypeName()))
 				.collect(Collectors.toList());
 
 		return ApiGatewayResponse.builder()
