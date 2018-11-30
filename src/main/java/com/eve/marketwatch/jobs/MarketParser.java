@@ -92,6 +92,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
             final int characterId = accessCharacterId.get();
             try {
                 parseMarket(typeIds, market, characterId);
+                resetUserErrors(characterId);
             } catch (BadRequestException e) {
 
                 if (e.getMessage().contains("invalid_token")) {
@@ -108,6 +109,16 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
             // if this point is reached, we likely have a bug
             throw new RuntimeException("No character has watches for " + market.getLocationId());
         }
+    }
+
+    private void resetUserErrors(int characterId) {
+        userRepository.find(characterId).ifPresent(user -> {
+            if (user.getErrorCount() > 0) {
+                LOG.info("Reset error count for " + characterId);
+                user.resetErrorCount();
+                userRepository.save(user);
+            }
+        });
     }
 
     private void updateUserErrors(int characterId) {

@@ -65,6 +65,9 @@ public class User {
         errorCount++;
     }
 
+    public void resetErrorCount() {
+        errorCount = 0;}
+
     public int getErrorCount() {
         return errorCount;
     }
