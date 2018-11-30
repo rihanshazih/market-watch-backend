@@ -77,7 +77,12 @@ public class WatchChecker implements RequestHandler<Map<String, Object>, ApiGate
 		}
 	}
 
-	private boolean isOlderThanMinimumDelay(ItemWatch watch) {
+	private boolean isOlderThanMinimumDelay(final ItemWatch watch) {
+        if (null == watch.getCreated()) {
+            // todo: remove once all entries are migrated
+            watch.setCreated(Date.from(Instant.now().minus(1, ChronoUnit.HOURS)));
+            itemWatchRepository.save(watch);
+        }
 		return watch.getCreated().after(Date.from(Instant.now().minus(MISSING_DELAY, ChronoUnit.MINUTES)));
 	}
 
