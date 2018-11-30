@@ -18,6 +18,7 @@ import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Response;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -72,6 +73,7 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 			final MailRequest mailRequest = createMailRequest(mail.getSubject(), mail.getText(), mail.getRecipient());
 			submitMailRequest(mailRequest);
 			mail.setMailStatus(MailStatus.SENT);
+			mail.setCreated(new Date());
 			mailRepository.save(mail);
 		}
 	}
