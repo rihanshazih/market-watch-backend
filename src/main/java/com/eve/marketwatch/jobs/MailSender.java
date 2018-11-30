@@ -68,6 +68,7 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 			LOG.info("No new mails to be sent.");
 		} else {
 			final Mail mail = mails.get(0);
+			LOG.info("Processing mail " + mail.getId());
 			final MailRequest mailRequest = createMailRequest(mail.getSubject(), mail.getText(), mail.getRecipient());
 			submitMailRequest(mailRequest);
 			mail.setMailStatus(MailStatus.SENT);
