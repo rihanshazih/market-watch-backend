@@ -2,14 +2,14 @@ package com.eve.marketwatch.jobs;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.eve.marketwatch.ApiGatewayResponse;
-import com.eve.marketwatch.model.ItemWatch;
-import com.eve.marketwatch.model.ItemWatchRepository;
-import com.eve.marketwatch.model.Mail;
-import com.eve.marketwatch.model.MailRepository;
-import com.eve.marketwatch.model.MailStatus;
-import com.eve.marketwatch.model.Market;
-import com.eve.marketwatch.model.MarketRepository;
+import com.eve.marketwatch.api.ApiGatewayResponse;
+import com.eve.marketwatch.model.dao.ItemWatch;
+import com.eve.marketwatch.model.dao.ItemWatchRepository;
+import com.eve.marketwatch.model.dao.Mail;
+import com.eve.marketwatch.model.dao.MailRepository;
+import com.eve.marketwatch.model.dao.MailStatus;
+import com.eve.marketwatch.model.dao.Market;
+import com.eve.marketwatch.model.dao.MarketRepository;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 

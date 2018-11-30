@@ -2,14 +2,15 @@ package com.eve.marketwatch.jobs;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.eve.marketwatch.ApiGatewayResponse;
-import com.eve.marketwatch.EsiAuthUtil;
-import com.eve.marketwatch.model.AccessTokenResponse;
-import com.eve.marketwatch.model.Mail;
-import com.eve.marketwatch.model.MailRecipient;
-import com.eve.marketwatch.model.MailRepository;
-import com.eve.marketwatch.model.MailRequest;
-import com.eve.marketwatch.model.MailStatus;
+import com.eve.marketwatch.api.ApiGatewayResponse;
+import com.eve.marketwatch.service.EveAuthService;
+import com.eve.marketwatch.exceptions.BadRequestException;
+import com.eve.marketwatch.model.eveauth.AccessTokenResponse;
+import com.eve.marketwatch.model.dao.Mail;
+import com.eve.marketwatch.model.esi.MailRecipient;
+import com.eve.marketwatch.model.dao.MailRepository;
+import com.eve.marketwatch.model.esi.MailRequest;
+import com.eve.marketwatch.model.dao.MailStatus;
 import com.google.gson.GsonBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -27,7 +28,7 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 	private static final Logger LOG = LogManager.getLogger(MailSender.class);
 
 	private final javax.ws.rs.client.Client webClient = ClientBuilder.newClient();
-	private final EsiAuthUtil esiAuthUtil;
+	private final EveAuthService eveAuthService;
 	private final MailRepository mailRepository;
 	private final int mailCharacterId;
 	private final String mailClientId;
@@ -40,11 +41,11 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 		mailClientId = System.getenv("MAIL_CLIENT_ID");
 		mailSecret = System.getenv("MAIL_CLIENT_SECRET");
 		mailRefreshToken = System.getenv("MAIL_REFRESH_TOKEN");
-		esiAuthUtil = new EsiAuthUtil();
+		eveAuthService = new EveAuthService();
 	}
 
-	MailSender(EsiAuthUtil esiAuthUtil, MailRepository mailRepository, int mailCharacterId, String mailClientId, String mailSecret, String mailRefreshToken) {
-		this.esiAuthUtil = esiAuthUtil;
+	MailSender(EveAuthService eveAuthService, MailRepository mailRepository, int mailCharacterId, String mailClientId, String mailSecret, String mailRefreshToken) {
+		this.eveAuthService = eveAuthService;
 		this.mailRepository = mailRepository;
 		this.mailCharacterId = mailCharacterId;
 		this.mailClientId = mailClientId;
@@ -87,7 +88,12 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 	}
 
 	private void submitMailRequest(final MailRequest mailRequest) {
-		final AccessTokenResponse accessTokenResponse = esiAuthUtil.generateAccessToken(mailRefreshToken, mailClientId, mailSecret);
+		final AccessTokenResponse accessTokenResponse;
+		try {
+			accessTokenResponse = eveAuthService.generateAccessToken(mailRefreshToken, mailClientId, mailSecret);
+		} catch (BadRequestException e) {
+			throw new RuntimeException("Failed to generate access token for mail sending.");
+		}
 		final String accessToken = accessTokenResponse.getAccessToken();
 		LOG.info("Executing mail request");
 		final String payload = new GsonBuilder().create().toJson(mailRequest);

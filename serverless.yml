@@ -68,13 +68,13 @@ package:
 
 functions:
   login:
-    handler: com.eve.marketwatch.LoginHandler
+    handler: com.eve.marketwatch.api.LoginHandler
     events:
     - http:
         path: login
         method: get
   deleteUser:
-    handler: com.eve.marketwatch.DeleteUserHandler
+    handler: com.eve.marketwatch.api.DeleteUserHandler
     events:
     - http:
         path: user
@@ -82,49 +82,49 @@ functions:
         cors: true
 
   addItemWatch:
-    handler: com.eve.marketwatch.AddItemWatchHandler
+    handler: com.eve.marketwatch.api.AddItemWatchHandler
     events:
     - http:
         path: itemwatch
         method: put
         cors: true
   getItemWatches:
-    handler: com.eve.marketwatch.GetItemWatchesHandler
+    handler: com.eve.marketwatch.api.GetItemWatchesHandler
     events:
       - http:
           path: itemwatch
           method: get
           cors: true
   deleteItemWatch:
-    handler: com.eve.marketwatch.DeleteItemWatchHandler
+    handler: com.eve.marketwatch.api.DeleteItemWatchHandler
     events:
       - http:
           path: itemwatch/{id}
           method: delete
           cors: true
   searchItem:
-    handler: com.eve.marketwatch.ItemSearchHandler
+    handler: com.eve.marketwatch.api.ItemSearchHandler
     events:
     - http:
         path: search
         method: get
   searchStructure:
 #    todo: merge me with searchItem, e.g. one search handler that can be modified with a query param
-    handler: com.eve.marketwatch.StructureSearchHandler
+    handler: com.eve.marketwatch.api.StructureSearchHandler
     events:
       - http:
           path: search-structure
           method: get
   getStructureDetails:
     #    todo: merge me with searchItem, e.g. one search handler that can be modified with a query param
-    handler: com.eve.marketwatch.StructureDetailsHandler
+    handler: com.eve.marketwatch.api.StructureDetailsHandler
     events:
       - http:
           path: structure/id
           method: get
 
   bulkMail:
-    handler: com.eve.marketwatch.BulkNotificationHandler
+    handler: com.eve.marketwatch.api.BulkNotificationHandler
     events:
       - http:
           path: admin/bulk
