@@ -10,12 +10,16 @@ import com.eve.marketwatch.model.dao.ItemWatchRepository;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.sql.Date;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
 public class WatchChecker implements RequestHandler<Map<String, Object>, ApiGatewayResponse> {
 
 	private static final Logger LOG = LogManager.getLogger(WatchChecker.class);
+	private static final int MISSING_DELAY = 10;
 
 	private final ItemWatchRepository itemWatchRepository;
 	private final ItemSnapshotRepository itemSnapshotRepository;
@@ -68,7 +72,13 @@ public class WatchChecker implements RequestHandler<Map<String, Object>, ApiGate
 				return;
 			}
 		}
-		handleMissingSnapshot(watch);
+		if (isOlderThanMinimumDelay(watch)) {
+			handleMissingSnapshot(watch);
+		}
+	}
+
+	private boolean isOlderThanMinimumDelay(ItemWatch watch) {
+		return watch.getCreated().after(Date.from(Instant.now().minus(MISSING_DELAY, ChronoUnit.MINUTES)));
 	}
 
 	private void handleMissingSnapshot(ItemWatch watch) {

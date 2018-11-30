@@ -136,11 +136,13 @@ functions:
   parseMarket:
     handler: com.eve.marketwatch.jobs.MarketParser
     events:
+      #      when you update the cron schedules make sure to adjust WatchChecker#MISSING_DELAY accordingly
       - schedule: cron(30 * * * ? *)
     warmup: false
   checkWatches:
     handler: com.eve.marketwatch.jobs.WatchChecker
     events:
+      #      when you update the cron schedules make sure to adjust WatchChecker#MISSING_DELAY accordingly
       - schedule: cron(35 * * * ? *)
     warmup: false
   createNotification:
