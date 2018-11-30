@@ -144,13 +144,14 @@ public class AddItemWatchHandler implements RequestHandler<Map<String, Object>, 
     }
 
     private void handleSingleItem(ItemWatch watch) throws NotFoundException {
-        final Integer typeId = getTypeId(watch.getTypeName());
-        watch.setTypeId(typeId);
+        final SearchEntry itemInfo = getTypeId(watch.getTypeName());
+        watch.setTypeName(itemInfo.getName());
+        watch.setTypeId(itemInfo.getId());
         watch.reset();
         itemWatchRepository.save(watch);
     }
 
-    Integer getTypeId(final String typeName) throws NotFoundException {
+    SearchEntry getTypeId(final String typeName) throws NotFoundException {
         final Response idResponse = webClient.target("https://esi.evetech.net")
                 .path("/v1/universe/ids/")
                 .request()
@@ -168,7 +169,7 @@ public class AddItemWatchHandler implements RequestHandler<Map<String, Object>, 
             LOG.error("Response from /universe/ids did not contain any inventoryTypes for " + typeName);
             throw new NotFoundException();
         }
-        return inventoryTypes[0].getId().intValue();
+        return inventoryTypes[0];
     }
 
     class NotFoundException extends Throwable {

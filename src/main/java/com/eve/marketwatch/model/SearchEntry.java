@@ -2,7 +2,7 @@ package com.eve.marketwatch.model;
 
 public class SearchEntry {
     private String name;
-    private Long id;
+    private int id;
 
     public String getName() {
         return name;
@@ -12,11 +12,11 @@ public class SearchEntry {
         this.name = name;
     }
 
-    public Long getId() {
+    public int getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(int id) {
         this.id = id;
     }
 }
