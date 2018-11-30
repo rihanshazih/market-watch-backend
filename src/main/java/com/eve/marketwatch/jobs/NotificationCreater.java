@@ -10,12 +10,15 @@ import com.eve.marketwatch.model.dao.MailRepository;
 import com.eve.marketwatch.model.dao.MailStatus;
 import com.eve.marketwatch.model.dao.Market;
 import com.eve.marketwatch.model.dao.MarketRepository;
+import com.eve.marketwatch.model.dao.User;
+import com.eve.marketwatch.model.dao.UserRepository;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class NotificationCreater implements RequestHandler<Map<String, Object>, ApiGatewayResponse> {
@@ -25,17 +28,20 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 	private final ItemWatchRepository itemWatchRepository;
 	private final MarketRepository marketRepository;
 	private final MailRepository mailRepository;
+	private final UserRepository userRepository;
 
 	public NotificationCreater() {
 		itemWatchRepository = ItemWatchRepository.getInstance();
 		marketRepository = MarketRepository.getInstance();
 		mailRepository = MailRepository.getInstance();
+		userRepository = UserRepository.getInstance();
 	}
 
-	NotificationCreater(ItemWatchRepository itemWatchRepository, MarketRepository marketRepository, MailRepository mailRepository) {
+	NotificationCreater(ItemWatchRepository itemWatchRepository, MarketRepository marketRepository, MailRepository mailRepository, UserRepository userRepository) {
 		this.itemWatchRepository = itemWatchRepository;
 		this.marketRepository = marketRepository;
 		this.mailRepository = mailRepository;
+		this.userRepository = userRepository;
 	}
 
 	@Override
@@ -50,9 +56,13 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 	}
 
 	void doCreate() {
+		final Set<Integer> characterIds = userRepository.findAll().stream()
+				.map(User::getCharacterId).collect(Collectors.toSet());
 		// todo: move filtering to DB
 		final List<ItemWatch> itemWatches = itemWatchRepository.findAll().stream()
-				.filter(w -> !w.isMailSent() && w.isTriggered()).collect(Collectors.toList());
+				.filter(w -> characterIds.contains(w.getCharacterId()))
+				.filter(w -> !w.isMailSent() && w.isTriggered())
+				.collect(Collectors.toList());
 
 		LOG.info("Found " + itemWatches.size() + " watches that should receive a mail.");
 
