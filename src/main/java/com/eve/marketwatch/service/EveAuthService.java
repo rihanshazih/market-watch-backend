@@ -1,6 +1,8 @@
 package com.eve.marketwatch.service;
 
 import com.eve.marketwatch.exceptions.BadRequestException;
+import com.eve.marketwatch.exceptions.EsiException;
+import com.eve.marketwatch.model.esi.EsiError;
 import com.eve.marketwatch.model.eveauth.AccessTokenResponse;
 import com.eve.marketwatch.model.eveauth.AuthVerificationResponse;
 import com.eve.marketwatch.model.eveauth.CharacterDetailsResponse;
@@ -56,17 +58,19 @@ public class EveAuthService {
         return new GsonBuilder().create().fromJson(json, CharacterDetailsResponse.class);
     }
 
-    public AuthVerificationResponse verifyAuthentication(final String code) {
+    public AuthVerificationResponse verifyAuthentication(final String code) throws EsiException {
         final Response response = webClient.target("https://login.eveonline.com/oauth/token")
                 .request()
                 .header("Authorization", "Basic " + base64Encode(CLIENT_ID, CLIENT_SECRET))
                 .post(Entity.entity("grant_type=authorization_code&code=" + code, "application/x-www-form-urlencoded"));
         LOG.info("Auth response code was " + response.getStatus());
-        if (response.getStatus() != 200) {
-            LOG.info(code);
-        }
         final String json = response.readEntity(String.class);
         LOG.info(json);
+        if (response.getStatus() != 200) {
+            LOG.info(code);
+            final EsiError errorResponse = new GsonBuilder().create().fromJson(json, EsiError.class);
+            throw new EsiException(errorResponse);
+        }
         return new GsonBuilder().create().fromJson(json, AuthVerificationResponse.class);
     }
 }

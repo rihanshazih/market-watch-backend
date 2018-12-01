@@ -2,6 +2,7 @@ package com.eve.marketwatch.api;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.eve.marketwatch.exceptions.EsiException;
 import com.eve.marketwatch.service.EveAuthService;
 import com.eve.marketwatch.service.SecurityService;
 import com.eve.marketwatch.model.eveauth.AuthVerificationResponse;
@@ -49,7 +50,15 @@ public class LoginHandler implements RequestHandler<Map<String, Object>, ApiGate
 
 		final String code = InputExtractor.getQueryParam("code", input);
 		final Instant beforeAuthentication = Instant.now();
-		final AuthVerificationResponse authResponse = eveAuthService.verifyAuthentication(code);
+		final AuthVerificationResponse authResponse;
+		try {
+			authResponse = eveAuthService.verifyAuthentication(code);
+		} catch (EsiException e) {
+			return ApiGatewayResponse.builder()
+					.setStatusCode(400)
+					.setRawBody(e.getError().getErrorDescription())
+					.build();
+		}
 		final CharacterDetailsResponse charDetails = eveAuthService.getCharacterDetails(authResponse.getAccessToken());
 
 		final User user = new User();
