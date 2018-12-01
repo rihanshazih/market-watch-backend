@@ -23,17 +23,28 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
 
 public class StructureSearchHandler implements RequestHandler<Map<String, Object>, ApiGatewayResponse> {
 
-	private static final Logger LOG = LogManager.getLogger(StructureSearchHandler.class);
+    private static final Logger LOG = LogManager.getLogger(StructureSearchHandler.class);
+    private static final int MAX_THREADS = 50;
+    private final ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(MAX_THREADS);
 
-	private final javax.ws.rs.client.Client webClient = ClientBuilder.newClient();
-	private final MarketRepository marketRepository = MarketRepository.getInstance();
-	private final EveAuthService eveAuthService = new EveAuthService();
-	private final UserRepository userRepository = UserRepository.getInstance();
-	private final SecurityService securityService = new SecurityService();
+    private static final List<Integer> IGNORED_STRUCTURE_TYPES = Arrays.asList(35825, 35835, 35836, 35841,
+			35840, 37534, 27674);
+
+    private final javax.ws.rs.client.Client webClient = ClientBuilder.newClient();
+    private final MarketRepository marketRepository = MarketRepository.getInstance();
+    private final EveAuthService eveAuthService = new EveAuthService();
+    private final UserRepository userRepository = UserRepository.getInstance();
+    private final SecurityService securityService = new SecurityService();
+
 
 	@Override
 	public ApiGatewayResponse handleRequest(Map<String, Object> input, Context context) {
@@ -100,47 +111,106 @@ public class StructureSearchHandler implements RequestHandler<Map<String, Object
 					.build();
 		}
 
-		final SearchResponse typeIds = new GsonBuilder().create().fromJson(json, SearchResponse.class);
-		if (typeIds == null || typeIds.getStructure() == null || typeIds.getStructure().length == 0) {
+		final SearchResponse search = new GsonBuilder().create().fromJson(json, SearchResponse.class);
+		if (search == null || search.getStructure() == null || search.getStructure().length == 0) {
 			LOG.info("No Structure was found for term " + term);
 			return ApiGatewayResponse.builder()
 					.setStatusCode(404)
 					.build();
 		}
-		List<Long> structureIds = Arrays.asList(typeIds.getStructure());
-		if (structureIds.size() > 10) {
-			structureIds = structureIds.subList(0, 10);
-		}
 
-		final List<Market> markets = new ArrayList<>();
-		for (final Long structureId : structureIds) {
-			LOG.info("Resolving name for structureId " + structureId);
-			final Response nameResponse = webClient.target("https://esi.evetech.net")
-					.path("/v2/universe/structures/" + structureId + "/")
-					.request()
-					.header("Authorization", "Bearer " + accessTokenResponse.getAccessToken())
-					.get();
-			final String nameJson = nameResponse.readEntity(String.class);
-			LOG.info(nameJson);
-			if (nameResponse.getStatus() == 200) {
-				final StructureInfoResponse structureInfo = new GsonBuilder().create().fromJson(nameJson, StructureInfoResponse.class);
-				final Market market = new Market();
-				market.setLocationId(structureId);
-				market.setLocationName(structureInfo.getName());
-				market.setTypeId(structureInfo.getTypeId());
-				markets.add(market);
-			} else {
-				LOG.warn(nameResponse.getStatus());
-			}
-		}
-
-		markets.forEach(marketRepository::save);
-
-		final List<String> names = markets.stream().map(Market::getLocationName).collect(Collectors.toList());
+		final List<String> names = getMarkets(accessTokenResponse.getAccessToken(), search).stream()
+				.map(Market::getLocationName).collect(Collectors.toList());
 
 		return ApiGatewayResponse.builder()
 				.setStatusCode(200)
 				.setObjectBody(names)
 				.build();
 	}
+
+	private List<Market> getMarkets(String accessToken, SearchResponse search) {
+        final List<Market> allKnownStructures = marketRepository.findAll();
+        final List<Long> allKnownStructureIds = allKnownStructures.stream().map(Market::getLocationId).collect(Collectors.toList());
+        final List<Long> knownNonMarketStructureIds = allKnownStructures.stream()
+				.filter(m -> IGNORED_STRUCTURE_TYPES.contains(m.getTypeId()))
+				.map(Market::getLocationId)
+				.collect(Collectors.toList());
+
+		final List<Long> searchedStructureIds = Arrays.stream(search.getStructure())
+				.filter(id -> !knownNonMarketStructureIds.contains(id))
+				.limit(MAX_THREADS)
+				.collect(Collectors.toList());
+		LOG.info("After filtering " + search.getStructure().length + " structures we now have " + searchedStructureIds.size());
+
+		// don't resolve the structure ids from the database, as a user might not have access to those structures
+        // the ACL is verified by the structure resolution call
+        final List<Future<Market>> futures = searchedStructureIds.stream().map(structureId -> {
+            final Callable<Market> callable = new StructureResolution(structureId, accessToken);
+            LOG.info("Submitting callable " + callable);
+            return executor.submit(callable);
+        }).collect(Collectors.toList());
+
+		final List<Market> resolvedStructures = new ArrayList<>();
+        for (final Future<Market> future : futures) {
+            try {
+                final Market m = future.get();
+                if (m != null) {
+                    resolvedStructures.add(m);
+                }
+            } catch (final InterruptedException | ExecutionException e) {
+                LOG.error(e);
+            }
+        }
+
+        resolvedStructures.stream()
+                .filter(s -> !allKnownStructureIds.contains(s.getLocationId()))
+                .forEach(marketRepository::save);
+
+        return resolvedStructures.stream()
+                .filter(s -> !IGNORED_STRUCTURE_TYPES.contains(s.getTypeId()))
+				.sorted((o1, o2) -> o1.getLocationName().compareToIgnoreCase(o2.getLocationName()))
+                .limit(10)
+                .collect(Collectors.toList());
+	}
+
+	private class StructureResolution implements Callable<Market> {
+
+        private final long structureId;
+        private final String accessToken;
+
+        private StructureResolution(long structureId, String accessToken) {
+            this.structureId = structureId;
+            this.accessToken = accessToken;
+        }
+
+        @Override
+        public Market call() throws Exception {
+            LOG.info("Resolving name for structureId " + structureId);
+            final Response nameResponse = webClient.target("https://esi.evetech.net")
+                    .path("/v2/universe/structures/" + structureId + "/")
+                    .request()
+                    .header("Authorization", "Bearer " + accessToken)
+                    .get();
+            final String nameJson = nameResponse.readEntity(String.class);
+            LOG.info(nameJson);
+            if (nameResponse.getStatus() == 200) {
+                final StructureInfoResponse structureInfo = new GsonBuilder().create().fromJson(nameJson, StructureInfoResponse.class);
+                final Market market = new Market();
+                market.setLocationId(structureId);
+                market.setLocationName(structureInfo.getName());
+                market.setTypeId(structureInfo.getTypeId());
+                return market;
+            } else {
+                LOG.warn(nameResponse.getStatus());
+                return null;
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "StructureResolution{" +
+                    "structureId=" + structureId +
+                    '}';
+        }
+    }
 }
