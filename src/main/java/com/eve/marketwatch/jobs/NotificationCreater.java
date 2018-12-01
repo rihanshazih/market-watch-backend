@@ -8,8 +8,8 @@ import com.eve.marketwatch.model.dao.ItemWatchRepository;
 import com.eve.marketwatch.model.dao.Mail;
 import com.eve.marketwatch.model.dao.MailRepository;
 import com.eve.marketwatch.model.dao.MailStatus;
-import com.eve.marketwatch.model.dao.Market;
-import com.eve.marketwatch.model.dao.MarketRepository;
+import com.eve.marketwatch.model.dao.Structure;
+import com.eve.marketwatch.model.dao.StructureRepository;
 import com.eve.marketwatch.model.dao.User;
 import com.eve.marketwatch.model.dao.UserRepository;
 import org.apache.logging.log4j.LogManager;
@@ -26,20 +26,20 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 	private static final Logger LOG = LogManager.getLogger(NotificationCreater.class);
 
 	private final ItemWatchRepository itemWatchRepository;
-	private final MarketRepository marketRepository;
+	private final StructureRepository structureRepository;
 	private final MailRepository mailRepository;
 	private final UserRepository userRepository;
 
 	public NotificationCreater() {
 		itemWatchRepository = ItemWatchRepository.getInstance();
-		marketRepository = MarketRepository.getInstance();
+		structureRepository = StructureRepository.getInstance();
 		mailRepository = MailRepository.getInstance();
 		userRepository = UserRepository.getInstance();
 	}
 
-	NotificationCreater(ItemWatchRepository itemWatchRepository, MarketRepository marketRepository, MailRepository mailRepository, UserRepository userRepository) {
+	NotificationCreater(ItemWatchRepository itemWatchRepository, StructureRepository structureRepository, MailRepository mailRepository, UserRepository userRepository) {
 		this.itemWatchRepository = itemWatchRepository;
-		this.marketRepository = marketRepository;
+		this.structureRepository = structureRepository;
 		this.mailRepository = mailRepository;
 		this.userRepository = userRepository;
 	}
@@ -98,23 +98,23 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 				.filter(w -> !w.isMailSent() && w.isTriggered())
 				.sorted((o1, o2) -> o1.getTypeName().compareToIgnoreCase(o2.getTypeName()))
 				.collect(Collectors.toList());
-		final List<Market> markets = itemWatches.stream()
+		final List<Structure> structures = itemWatches.stream()
 				.map(ItemWatch::getLocationId).distinct()
-				.map(marketRepository::find)
+				.map(structureRepository::find)
 				.map(Optional::get).collect(Collectors.toList());
 
 		final StringBuilder builder = new StringBuilder();
 
-		for (final Market market : markets) {
+		for (final Structure structure : structures) {
 			// <url=showinfo:47515//1027847407700>GE-8JV - SOTA FACTORY</url>
-			builder.append("<url=showinfo:").append(market.getTypeId()).append("//")
-					.append(market.getLocationId()).append(">")
-					.append(market.getLocationName())
+			builder.append("<url=showinfo:").append(structure.getTypeId()).append("//")
+					.append(structure.getStructureId()).append(">")
+					.append(structure.getStructureName())
 					.append("</url>")
 					.append("\n\n");
 
 			final List<ItemWatch> marketWatches = itemWatches.stream()
-					.filter(w -> w.getLocationId() == market.getLocationId()).collect(Collectors.toList());
+					.filter(w -> w.getLocationId() == structure.getStructureId()).collect(Collectors.toList());
 			for (final ItemWatch watch : marketWatches) {
 				// <url=showinfo:608>Atron</url>
 				builder.append("<url=showinfo:").append(watch.getTypeId()).append(">")

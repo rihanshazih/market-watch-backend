@@ -3,6 +3,7 @@ package com.eve.marketwatch.jobs;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.eve.marketwatch.api.ApiGatewayResponse;
+import com.eve.marketwatch.model.dao.Structure;
 import com.eve.marketwatch.service.EveAuthService;
 import com.eve.marketwatch.exceptions.BadRequestException;
 import com.eve.marketwatch.model.dao.ItemSnapshot;
@@ -12,9 +13,8 @@ import com.eve.marketwatch.model.dao.ItemWatchRepository;
 import com.eve.marketwatch.model.dao.Mail;
 import com.eve.marketwatch.model.dao.MailRepository;
 import com.eve.marketwatch.model.dao.MailStatus;
-import com.eve.marketwatch.model.dao.Market;
 import com.eve.marketwatch.model.esi.MarketOrderResponse;
-import com.eve.marketwatch.model.dao.MarketRepository;
+import com.eve.marketwatch.model.dao.StructureRepository;
 import com.eve.marketwatch.model.dao.User;
 import com.eve.marketwatch.model.dao.UserRepository;
 import com.google.gson.GsonBuilder;
@@ -38,7 +38,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
     private static final Logger LOG = LogManager.getLogger(MarketParser.class);
 
     private final javax.ws.rs.client.Client webClient = ClientBuilder.newClient();
-    private final MarketRepository marketRepository;
+    private final StructureRepository structureRepository;
     private final UserRepository userRepository;
     private final ItemWatchRepository itemWatchRepository;
     private final ItemSnapshotRepository itemSnapshotRepository;
@@ -46,7 +46,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
     private final MailRepository mailRepository;
 
     public MarketParser() {
-        marketRepository = MarketRepository.getInstance();
+        structureRepository = StructureRepository.getInstance();
         userRepository = UserRepository.getInstance();
         itemWatchRepository = ItemWatchRepository.getInstance();
         itemSnapshotRepository = ItemSnapshotRepository.getInstance();
@@ -54,8 +54,8 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         mailRepository = MailRepository.getInstance();
     }
 
-    MarketParser(MarketRepository marketRepository, UserRepository userRepository, ItemWatchRepository itemWatchRepository, ItemSnapshotRepository itemSnapshotRepository, EveAuthService eveAuthService, MailRepository mailRepository) {
-        this.marketRepository = marketRepository;
+    MarketParser(StructureRepository structureRepository, UserRepository userRepository, ItemWatchRepository itemWatchRepository, ItemSnapshotRepository itemSnapshotRepository, EveAuthService eveAuthService, MailRepository mailRepository) {
+        this.structureRepository = structureRepository;
         this.userRepository = userRepository;
         this.itemWatchRepository = itemWatchRepository;
         this.itemSnapshotRepository = itemSnapshotRepository;
@@ -79,19 +79,19 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         final Set<Long> locationIds = itemWatches.stream().map(ItemWatch::getLocationId).collect(Collectors.toSet());
         final Set<Integer> typeIds = itemWatches.stream().map(ItemWatch::getTypeId).collect(Collectors.toSet());
 
-        final List<Market> markets = marketRepository.findAll().stream().filter(market -> locationIds.contains(market.getLocationId())).collect(Collectors.toList());
-        for (final Market market : markets) {
-            processMarket(itemWatches, typeIds, market);
+        final List<Structure> structures = structureRepository.findAll().stream().filter(market -> locationIds.contains(market.getStructureId())).collect(Collectors.toList());
+        for (final Structure structure : structures) {
+            processMarket(itemWatches, typeIds, structure);
         }
     }
 
-    private void processMarket(List<ItemWatch> itemWatches, Set<Integer> typeIds, Market market) {
-        LOG.info("Parsing market for locationId " + market.getLocationId());
-        final Optional<Integer> accessCharacterId = findCharacterWithAccess(market, itemWatches);
+    private void processMarket(final List<ItemWatch> itemWatches, final Set<Integer> typeIds, final Structure structure) {
+        LOG.info("Parsing structure for locationId " + structure.getStructureId());
+        final Optional<Integer> accessCharacterId = findCharacterWithAccess(structure, itemWatches);
         if (accessCharacterId.isPresent()) {
             final int characterId = accessCharacterId.get();
             try {
-                parseMarket(typeIds, market, characterId);
+                parseMarket(typeIds, structure, characterId);
                 resetUserErrors(characterId);
             } catch (BadRequestException e) {
 
@@ -100,14 +100,14 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
                     updateUserErrors(characterId);
                 }
 
-                LOG.warn("Failed to parse market " + market.getLocationId() + " with character "
+                LOG.warn("Failed to parse structure " + structure.getStructureId() + " with character "
                         + characterId + ": " + e.getMessage());
                 // try again with next character
-                processMarket(itemWatches, typeIds, market);
+                processMarket(itemWatches, typeIds, structure);
             }
         } else {
             // if this point is reached, we likely have a bug
-            throw new RuntimeException("No character has watches for " + market.getLocationId());
+            throw new RuntimeException("No character has watches for " + structure.getStructureId());
         }
     }
 
@@ -147,9 +147,9 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         mailRepository.save(mail);
     }
 
-    private void parseMarket(Set<Integer> typeIds, Market market, final int characterId) throws BadRequestException {
+    private void parseMarket(final Set<Integer> typeIds, final Structure structure, final int characterId) throws BadRequestException {
         final HashMap<Integer, Long> volumes = new HashMap<>();
-        final long locationId = market.getLocationId();
+        final long locationId = structure.getStructureId();
         final List<MarketOrderResponse> marketOrders = getMarketOrders(characterId, locationId)
                 .stream()
                 .filter(m -> !m.isBuyOrder())
@@ -211,9 +211,9 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         }
     }
 
-    private Optional<Integer> findCharacterWithAccess(final Market market, final List<ItemWatch> itemWatches) {
+    private Optional<Integer> findCharacterWithAccess(final Structure structure, final List<ItemWatch> itemWatches) {
         return itemWatches.stream()
-                .filter(i -> i.getLocationId() == market.getLocationId())
+                .filter(i -> i.getLocationId() == structure.getStructureId())
                 .map(ItemWatch::getCharacterId)
                 .findAny();
     }

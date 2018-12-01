@@ -2,8 +2,8 @@ package com.eve.marketwatch.api;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.eve.marketwatch.model.dao.Market;
-import com.eve.marketwatch.model.dao.MarketRepository;
+import com.eve.marketwatch.model.dao.Structure;
+import com.eve.marketwatch.model.dao.StructureRepository;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -14,7 +14,7 @@ public class StructureDetailsHandler implements RequestHandler<Map<String, Objec
 
 	private static final Logger LOG = LogManager.getLogger(StructureDetailsHandler.class);
 
-	private final MarketRepository marketRepository = MarketRepository.getInstance();
+	private final StructureRepository structureRepository = StructureRepository.getInstance();
 
 	@Override
 	public ApiGatewayResponse handleRequest(Map<String, Object> input, Context context) {
@@ -34,11 +34,11 @@ public class StructureDetailsHandler implements RequestHandler<Map<String, Objec
 					.build();
 		}
 
-		final Optional<Market> market = marketRepository.find(term);
+		final Optional<Structure> market = structureRepository.find(term);
 		if (market.isPresent()) {
 			return ApiGatewayResponse.builder()
 					.setStatusCode(200)
-					.setRawBody(String.valueOf(market.get().getLocationId()))
+					.setRawBody(String.valueOf(market.get().getStructureId()))
 					.build();
 		} else {
 			return ApiGatewayResponse.builder()

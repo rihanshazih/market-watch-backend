@@ -6,7 +6,7 @@ In order to deploy this application you need an AWS account with the permissions
 
 First create the following DynamoDB tables:
 - `eve_marketwatch_user` with number key `character_id`
-- `eve_marketwatch_market` with number key `location_id`
+- `eve_marketwatch_structure` with number key `structure_id`
 - `eve_marketwatch_item_watch` with string key `id`
 - `eve_marketwatch_item_snapshot` with string key `id`
 - `eve_marketwatch_mail` with string key `id`

@@ -2,12 +2,12 @@ package com.eve.marketwatch.api;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.eve.marketwatch.model.dao.Structure;
 import com.eve.marketwatch.service.EveAuthService;
 import com.eve.marketwatch.service.SecurityService;
 import com.eve.marketwatch.exceptions.BadRequestException;
 import com.eve.marketwatch.model.eveauth.AccessTokenResponse;
-import com.eve.marketwatch.model.dao.Market;
-import com.eve.marketwatch.model.dao.MarketRepository;
+import com.eve.marketwatch.model.dao.StructureRepository;
 import com.eve.marketwatch.model.esi.SearchResponse;
 import com.eve.marketwatch.model.esi.StructureInfoResponse;
 import com.eve.marketwatch.model.dao.User;
@@ -40,7 +40,7 @@ public class StructureSearchHandler implements RequestHandler<Map<String, Object
 			35840, 37534, 27674);
 
     private final javax.ws.rs.client.Client webClient = ClientBuilder.newClient();
-    private final MarketRepository marketRepository = MarketRepository.getInstance();
+    private final StructureRepository structureRepository = StructureRepository.getInstance();
     private final EveAuthService eveAuthService = new EveAuthService();
     private final UserRepository userRepository = UserRepository.getInstance();
     private final SecurityService securityService = new SecurityService();
@@ -120,7 +120,7 @@ public class StructureSearchHandler implements RequestHandler<Map<String, Object
 		}
 
 		final List<String> names = getMarkets(accessTokenResponse.getAccessToken(), search).stream()
-				.map(Market::getLocationName).collect(Collectors.toList());
+				.map(Structure::getStructureName).collect(Collectors.toList());
 
 		return ApiGatewayResponse.builder()
 				.setStatusCode(200)
@@ -128,12 +128,12 @@ public class StructureSearchHandler implements RequestHandler<Map<String, Object
 				.build();
 	}
 
-	private List<Market> getMarkets(String accessToken, SearchResponse search) {
-        final List<Market> allKnownStructures = marketRepository.findAll();
-        final List<Long> allKnownStructureIds = allKnownStructures.stream().map(Market::getLocationId).collect(Collectors.toList());
+	private List<Structure> getMarkets(String accessToken, SearchResponse search) {
+        final List<Structure> allKnownStructures = structureRepository.findAll();
+        final List<Long> allKnownStructureIds = allKnownStructures.stream().map(Structure::getStructureId).collect(Collectors.toList());
         final List<Long> knownNonMarketStructureIds = allKnownStructures.stream()
 				.filter(m -> IGNORED_STRUCTURE_TYPES.contains(m.getTypeId()))
-				.map(Market::getLocationId)
+				.map(Structure::getStructureId)
 				.collect(Collectors.toList());
 
 		final List<Long> searchedStructureIds = Arrays.stream(search.getStructure())
@@ -144,16 +144,16 @@ public class StructureSearchHandler implements RequestHandler<Map<String, Object
 
 		// don't resolve the structure ids from the database, as a user might not have access to those structures
         // the ACL is verified by the structure resolution call
-        final List<Future<Market>> futures = searchedStructureIds.stream().map(structureId -> {
-            final Callable<Market> callable = new StructureResolution(structureId, accessToken);
+        final List<Future<Structure>> futures = searchedStructureIds.stream().map(structureId -> {
+            final Callable<Structure> callable = new StructureResolution(structureId, accessToken);
             LOG.info("Submitting callable " + callable);
             return executor.submit(callable);
         }).collect(Collectors.toList());
 
-		final List<Market> resolvedStructures = new ArrayList<>();
-        for (final Future<Market> future : futures) {
+		final List<Structure> resolvedStructures = new ArrayList<>();
+        for (final Future<Structure> future : futures) {
             try {
-                final Market m = future.get();
+                final Structure m = future.get();
                 if (m != null) {
                     resolvedStructures.add(m);
                 }
@@ -163,17 +163,17 @@ public class StructureSearchHandler implements RequestHandler<Map<String, Object
         }
 
         resolvedStructures.stream()
-                .filter(s -> !allKnownStructureIds.contains(s.getLocationId()))
-                .forEach(marketRepository::save);
+                .filter(s -> !allKnownStructureIds.contains(s.getStructureId()))
+                .forEach(structureRepository::save);
 
         return resolvedStructures.stream()
                 .filter(s -> !IGNORED_STRUCTURE_TYPES.contains(s.getTypeId()))
-				.sorted((o1, o2) -> o1.getLocationName().compareToIgnoreCase(o2.getLocationName()))
+				.sorted((o1, o2) -> o1.getStructureName().compareToIgnoreCase(o2.getStructureName()))
                 .limit(10)
                 .collect(Collectors.toList());
 	}
 
-	private class StructureResolution implements Callable<Market> {
+	private class StructureResolution implements Callable<Structure> {
 
         private final long structureId;
         private final String accessToken;
@@ -184,7 +184,7 @@ public class StructureSearchHandler implements RequestHandler<Map<String, Object
         }
 
         @Override
-        public Market call() throws Exception {
+        public Structure call() throws Exception {
             LOG.info("Resolving name for structureId " + structureId);
             final Response nameResponse = webClient.target("https://esi.evetech.net")
                     .path("/v2/universe/structures/" + structureId + "/")
@@ -195,11 +195,11 @@ public class StructureSearchHandler implements RequestHandler<Map<String, Object
             LOG.info(nameJson);
             if (nameResponse.getStatus() == 200) {
                 final StructureInfoResponse structureInfo = new GsonBuilder().create().fromJson(nameJson, StructureInfoResponse.class);
-                final Market market = new Market();
-                market.setLocationId(structureId);
-                market.setLocationName(structureInfo.getName());
-                market.setTypeId(structureInfo.getTypeId());
-                return market;
+                final Structure structure = new Structure();
+                structure.setStructureId(structureId);
+                structure.setStructureName(structureInfo.getName());
+                structure.setTypeId(structureInfo.getTypeId());
+                return structure;
             } else {
                 LOG.warn(nameResponse.getStatus());
                 return null;
