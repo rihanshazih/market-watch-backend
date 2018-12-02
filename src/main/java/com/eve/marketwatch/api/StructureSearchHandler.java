@@ -36,8 +36,14 @@ public class StructureSearchHandler implements RequestHandler<Map<String, Object
     private static final int MAX_THREADS = 50;
     private final ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(MAX_THREADS);
 
-    private static final List<Integer> IGNORED_STRUCTURE_TYPES = Arrays.asList(35825, 35835, 35836, 35841,
-			35840, 37534, 27674);
+    private static final List<Integer> IGNORED_STRUCTURE_TYPES = Arrays.asList(
+    		35825, // raitaru
+			35835, // athanor
+			35836, // tatara
+			35841, // ansiblex jump gate
+			35840, // pharolux cyno beacon
+			37534, // cerebrex cyno jammer
+			27674); // cynosural system jammer
 
     private final javax.ws.rs.client.Client webClient = ClientBuilder.newClient();
     private final StructureRepository structureRepository = StructureRepository.getInstance();
