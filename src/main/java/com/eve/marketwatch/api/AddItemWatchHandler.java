@@ -102,6 +102,7 @@ public class AddItemWatchHandler implements RequestHandler<Map<String, Object>, 
 
         return ApiGatewayResponse.builder()
                 .setStatusCode(201)
+                .setObjectBody(watch)
                 .build();
     }
 
