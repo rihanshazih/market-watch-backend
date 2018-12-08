@@ -75,23 +75,25 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
     }
 
     void doParse() {
+        final List<ItemSnapshot> itemSnapshots = itemSnapshotRepository.findAll();
+
         final List<ItemWatch> itemWatches = itemWatchRepository.findAll();
         final Set<Long> locationIds = itemWatches.stream().map(ItemWatch::getLocationId).collect(Collectors.toSet());
         final Set<Integer> typeIds = itemWatches.stream().map(ItemWatch::getTypeId).collect(Collectors.toSet());
 
         final List<Structure> structures = structureRepository.findAll().stream().filter(market -> locationIds.contains(market.getStructureId())).collect(Collectors.toList());
         for (final Structure structure : structures) {
-            processMarket(itemWatches, typeIds, structure);
+            processMarket(itemWatches, typeIds, structure, itemSnapshots);
         }
     }
 
-    private void processMarket(final List<ItemWatch> itemWatches, final Set<Integer> typeIds, final Structure structure) {
+    private void processMarket(final List<ItemWatch> itemWatches, final Set<Integer> typeIds, final Structure structure, List<ItemSnapshot> itemSnapshots) {
         LOG.info("Parsing structure for locationId " + structure.getStructureId());
         final Optional<Integer> accessCharacterId = findCharacterWithAccess(structure, itemWatches);
         if (accessCharacterId.isPresent()) {
             final int characterId = accessCharacterId.get();
             try {
-                parseMarket(typeIds, structure, characterId);
+                parseMarket(typeIds, structure, characterId, itemSnapshots);
                 resetUserErrors(characterId);
             } catch (BadRequestException e) {
 
@@ -103,7 +105,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
                 LOG.warn("Failed to parse structure " + structure.getStructureId() + " with character "
                         + characterId + ": " + e.getMessage());
                 // try again with next character
-                processMarket(itemWatches, typeIds, structure);
+                processMarket(itemWatches, typeIds, structure, itemSnapshots);
             }
         } else {
             // if this point is reached, we likely have a bug
@@ -147,7 +149,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         mailRepository.save(mail);
     }
 
-    private void parseMarket(final Set<Integer> typeIds, final Structure structure, final int characterId) throws BadRequestException {
+    private void parseMarket(final Set<Integer> typeIds, final Structure structure, final int characterId, List<ItemSnapshot> itemSnapshots) throws BadRequestException {
         final HashMap<Integer, Long> volumes = new HashMap<>();
         final long locationId = structure.getStructureId();
         final List<MarketOrderResponse> marketOrders = getMarketOrders(characterId, locationId)
@@ -161,13 +163,19 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         }
 
         for (final Map.Entry<Integer, Long> entry : volumes.entrySet()) {
-            final ItemSnapshot itemSnapshot = new ItemSnapshot();
             final int typeId = entry.getKey();
-            itemSnapshot.setId(typeId + "-" + locationId);
-            itemSnapshot.setTypeId(typeId);
-            itemSnapshot.setAmount(entry.getValue());
-            itemSnapshot.setLocationId(locationId);
-            itemSnapshotRepository.save(itemSnapshot);
+            final long amount = entry.getValue();
+            final boolean alreadyExists = itemSnapshots.stream()
+                    .filter(w -> w.getAmount() == amount)
+                    .anyMatch(w -> w.getTypeId() == typeId && w.getLocationId() == locationId);
+            if (!alreadyExists) {
+                final ItemSnapshot itemSnapshot = new ItemSnapshot();
+                itemSnapshot.setId(typeId + "-" + locationId);
+                itemSnapshot.setTypeId(typeId);
+                itemSnapshot.setAmount(amount);
+                itemSnapshot.setLocationId(locationId);
+                itemSnapshotRepository.save(itemSnapshot);
+            }
         }
     }
 
