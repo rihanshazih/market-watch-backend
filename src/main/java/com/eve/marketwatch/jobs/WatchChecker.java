@@ -63,8 +63,8 @@ public class WatchChecker implements RequestHandler<Map<String, Object>, ApiGate
 					if (!watch.isTriggered()) {
 						LOG.info("Triggered watch: " + watch);
 						watch.setTriggered(true);
+						itemWatchRepository.save(watch);
 					}
-					itemWatchRepository.save(watch);
 				} else if (watch.isTriggered() || watch.isMailSent()) {
 					LOG.info("Reset watch: " + watch);
 					watch.reset();
@@ -80,7 +80,7 @@ public class WatchChecker implements RequestHandler<Map<String, Object>, ApiGate
 
 	private boolean isOlderThanMinimumDelay(final ItemWatch watch) {
         if (null == watch.getCreated()) {
-            // todo: remove once all entries are migrated
+            // todo: remove once all entries are migrated (= have a created date)
             watch.setCreated(Date.from(Instant.now().minus(1, ChronoUnit.HOURS)));
             itemWatchRepository.save(watch);
         }
