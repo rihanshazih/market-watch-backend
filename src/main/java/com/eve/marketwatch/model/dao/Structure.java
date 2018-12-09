@@ -13,6 +13,10 @@ public class Structure {
     private int typeId;
     // the market service is only visible on stations
     private boolean marketService;
+    private boolean npcStation;
+    // this field should be nullable, as we allow for lazy resolution within the MarketParser to not slow down
+    // the structure search on user-facing endpoints
+    private Integer regionId;
 
     @DynamoDBHashKey(
             attributeName = "structure_id"
@@ -47,5 +51,21 @@ public class Structure {
 
     public void setMarketService(boolean marketService) {
         this.marketService = marketService;
+    }
+
+    public boolean isNpcStation() {
+        return npcStation;
+    }
+
+    public void setNpcStation(boolean npcStation) {
+        this.npcStation = npcStation;
+    }
+
+    public Integer getRegionId() {
+        return regionId;
+    }
+
+    public void setRegionId(Integer regionId) {
+        this.regionId = regionId;
     }
 }

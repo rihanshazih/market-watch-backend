@@ -1,4 +1,4 @@
-package com.eve.marketwatch.jobs;
+package com.eve.marketwatch.api;
 
 import com.eve.marketwatch.model.dao.Structure;
 import com.eve.marketwatch.model.dao.StructureRepository;
@@ -143,6 +143,7 @@ public class StationResolver implements Callable<List<String>> {
                 if (stationInfo.getServices().contains("market")) {
                     structure.setMarketService(true);
                 }
+                structure.setNpcStation(true);
                 return structure;
             } else {
                 LOG.info(nameJson);

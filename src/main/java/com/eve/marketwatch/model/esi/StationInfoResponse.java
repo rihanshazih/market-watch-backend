@@ -9,6 +9,8 @@ public class StationInfoResponse {
     @SerializedName("type_id")
     private int typeId;
     private List<String> services;
+    @SerializedName("system_id")
+    private int systemId;
 
     public int getTypeId() {
         return typeId;
@@ -32,5 +34,13 @@ public class StationInfoResponse {
 
     public void setServices(List<String> services) {
         this.services = services;
+    }
+
+    public int getSystemId() {
+        return systemId;
+    }
+
+    public void setSystemId(int systemId) {
+        this.systemId = systemId;
     }
 }

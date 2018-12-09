@@ -4,8 +4,6 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.eve.marketwatch.exceptions.BadRequestException;
 import com.eve.marketwatch.exceptions.UnknownUserException;
-import com.eve.marketwatch.jobs.StationResolver;
-import com.eve.marketwatch.jobs.StructureResolver;
 import com.eve.marketwatch.model.dao.Structure;
 import com.eve.marketwatch.model.dao.StructureRepository;
 import com.eve.marketwatch.service.EveAuthService;

@@ -1,4 +1,4 @@
-package com.eve.marketwatch.jobs;
+package com.eve.marketwatch.api;
 
 import com.eve.marketwatch.model.dao.Structure;
 import com.eve.marketwatch.model.dao.StructureRepository;
