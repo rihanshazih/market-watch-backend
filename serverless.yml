@@ -64,7 +64,7 @@ provider:
               - function:${self:service}-${opt:stage, self:provider.stage}-*
 
 package:
-  artifact: target/market-watch-1.0.0.jar
+  artifact: target/market-watch-1.0.1.jar
 
 functions:
   login:
