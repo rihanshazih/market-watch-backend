@@ -82,7 +82,6 @@ public class StructureResolver implements Callable<List<String>> {
                 .map(Structure::getStructureName).collect(Collectors.toList());
     }
 
-
     private List<Structure> getMarkets(String accessToken, SearchResponse search, List<Structure> allKnownStructures) {
         final List<Long> allKnownStructureIds = allKnownStructures.stream().map(Structure::getStructureId).collect(Collectors.toList());
         final List<Long> knownNonMarketStructureIds = allKnownStructures.stream()
