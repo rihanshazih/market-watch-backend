@@ -110,7 +110,7 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 	private void submitMailRequest(final MailRequest mailRequest) throws MailFailed {
 		final AccessTokenResponse accessTokenResponse;
 		try {
-			accessTokenResponse = eveAuthService.generateAccessToken(mailRefreshToken, mailClientId, mailSecret);
+			accessTokenResponse = eveAuthService.getAccessToken(mailRefreshToken, mailClientId, mailSecret);
 		} catch (BadRequestException e) {
 			throw new RuntimeException("Failed to generate access token for mail sending.");
 		}

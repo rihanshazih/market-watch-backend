@@ -2,13 +2,12 @@ package com.eve.marketwatch.api;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.eve.marketwatch.service.EveAuthService;
-import com.eve.marketwatch.service.SecurityService;
 import com.eve.marketwatch.exceptions.BadRequestException;
-import com.eve.marketwatch.model.eveauth.AccessTokenResponse;
-import com.eve.marketwatch.model.esi.SearchResponse;
 import com.eve.marketwatch.model.dao.User;
 import com.eve.marketwatch.model.dao.UserRepository;
+import com.eve.marketwatch.model.esi.SearchResponse;
+import com.eve.marketwatch.service.EveAuthService;
+import com.eve.marketwatch.service.SecurityService;
 import com.google.gson.GsonBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -60,9 +59,9 @@ public class GetStructureIdHandler implements RequestHandler<Map<String, Object>
 					.setStatusCode(404)
 					.build();
 		}
-		final AccessTokenResponse accessTokenResponse;
+		final String accessToken;
 		try {
-			accessTokenResponse = eveAuthService.generateAccessToken(user.get().getRefreshToken());
+			accessToken = eveAuthService.getAccessToken(user.get());
 		} catch (BadRequestException e) {
 			LOG.warn("Failed to get access token for characterId " + characterId);
 			return ApiGatewayResponse.builder()
@@ -75,7 +74,7 @@ public class GetStructureIdHandler implements RequestHandler<Map<String, Object>
 				.queryParam("search", term)
 				.queryParam("strict", true)
 				.request()
-				.header("Authorization", "Bearer " + accessTokenResponse.getAccessToken())
+				.header("Authorization", "Bearer " + accessToken)
 				.get();
 
 		if (searchResponse.getStatus() != 200) {
@@ -85,7 +84,6 @@ public class GetStructureIdHandler implements RequestHandler<Map<String, Object>
 		}
 
 		final String json = searchResponse.readEntity(String.class);
-		System.out.println(json);
 		final SearchResponse typeIds = new GsonBuilder().create().fromJson(json, SearchResponse.class);
 		List<Long> structureIds = Arrays.asList(typeIds.getStructure());
 		if (structureIds.isEmpty()) {

@@ -11,6 +11,8 @@ public class Structure {
     private long structureId;
     private String structureName;
     private int typeId;
+    // the market service is only visible on stations
+    private boolean marketService;
 
     @DynamoDBHashKey(
             attributeName = "structure_id"
@@ -37,5 +39,13 @@ public class Structure {
 
     public void setTypeId(int typeId) {
         this.typeId = typeId;
+    }
+
+    public boolean isMarketService() {
+        return marketService;
+    }
+
+    public void setMarketService(boolean marketService) {
+        this.marketService = marketService;
     }
 }

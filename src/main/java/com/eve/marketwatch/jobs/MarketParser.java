@@ -192,13 +192,13 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         return marketOrders;
     }
 
+    // todo: move into auth service so that we only need the characterId to trigger the function
     private String getAccessToken(final int characterId) throws BadRequestException {
         final Optional<User> user = userRepository.find(characterId);
         if (!user.isPresent()) {
             throw new BadRequestException("User " + characterId + "does not exist anymore.");
         }
-        final String refreshToken = user.get().getRefreshToken();
-        return eveAuthService.generateAccessToken(refreshToken).getAccessToken();
+        return eveAuthService.getAccessToken(user.get());
     }
 
     private List<MarketOrderResponse> getMarketOrders(final long structureId, final String accessToken, final int page) throws BadRequestException {

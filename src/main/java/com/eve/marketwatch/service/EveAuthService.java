@@ -2,6 +2,8 @@ package com.eve.marketwatch.service;
 
 import com.eve.marketwatch.exceptions.BadRequestException;
 import com.eve.marketwatch.exceptions.EsiException;
+import com.eve.marketwatch.model.dao.User;
+import com.eve.marketwatch.model.dao.UserRepository;
 import com.eve.marketwatch.model.esi.EsiError;
 import com.eve.marketwatch.model.eveauth.AccessTokenResponse;
 import com.eve.marketwatch.model.eveauth.AuthVerificationResponse;
@@ -14,21 +16,34 @@ import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Response;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
+import java.util.Date;
 
 public class EveAuthService {
 
     private static final Logger LOG = LogManager.getLogger(EveAuthService.class);
     private static final String CLIENT_ID = System.getenv("APP_CLIENT_ID");
     private static final String CLIENT_SECRET = System.getenv("APP_CLIENT_SECRET");
+    private final UserRepository userRepository = UserRepository.getInstance();
 
     private final javax.ws.rs.client.Client webClient = ClientBuilder.newClient();
 
-    public AccessTokenResponse generateAccessToken(final String refreshToken) throws BadRequestException {
-        return generateAccessToken(refreshToken, CLIENT_ID, CLIENT_SECRET);
+    public String getAccessToken(final User user) throws BadRequestException {
+        if (new Date().before(user.getAccessTokenExpiry())) {
+            return user.getAccessToken();
+        } else {
+            final AccessTokenResponse response = getAccessToken(user.getRefreshToken(), CLIENT_ID, CLIENT_SECRET);
+            user.setAccessToken(response.getAccessToken());
+            // -300 to give a 5 minute period before the token would expire
+            user.setAccessTokenExpiry(Date.from(Instant.now().plus(response.getExpiresIn() - 120L, ChronoUnit.SECONDS)));
+            userRepository.save(user);
+            return user.getAccessToken();
+        }
     }
 
-    public AccessTokenResponse generateAccessToken(final String refreshToken, final String clientId, final String clientSecret) throws BadRequestException {
+    public AccessTokenResponse getAccessToken(final String refreshToken, final String clientId, final String clientSecret) throws BadRequestException {
         final Response response = webClient.target("https://login.eveonline.com/oauth/token").request()
                 .header("Authorization", "Basic " + base64Encode(clientId, clientSecret))
                 .post(Entity.entity("grant_type=refresh_token&refresh_token=" + refreshToken, "application/x-www-form-urlencoded"));
