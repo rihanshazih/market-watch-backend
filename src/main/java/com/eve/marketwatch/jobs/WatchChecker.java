@@ -68,6 +68,7 @@ public class WatchChecker implements RequestHandler<Map<String, Object>, ApiGate
 				} else if (watch.isTriggered() || watch.isMailSent()) {
 					LOG.info("Reset watch: " + watch);
 					watch.reset();
+					itemWatchRepository.save(watch);
 				}
 				return;
 			}
