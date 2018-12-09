@@ -26,7 +26,7 @@ custom:
     folderName: '_warmup' # Name of the folder created for the generated warmup
     cleanFolder: false
     memorySize: 256
-    name: 'make-them-pop'
+    name: 'market-watch-warmup'
     schedule: rate(10 minutes)
     timeout: 20
     prewarm: true
