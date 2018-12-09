@@ -2,6 +2,7 @@ package com.eve.marketwatch.service;
 
 import com.eve.marketwatch.exceptions.BadRequestException;
 import com.eve.marketwatch.exceptions.EsiException;
+import com.eve.marketwatch.exceptions.UnknownUserException;
 import com.eve.marketwatch.model.dao.User;
 import com.eve.marketwatch.model.dao.UserRepository;
 import com.eve.marketwatch.model.esi.EsiError;
@@ -20,6 +21,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Optional;
 
 public class EveAuthService {
 
@@ -30,7 +32,16 @@ public class EveAuthService {
 
     private final javax.ws.rs.client.Client webClient = ClientBuilder.newClient();
 
-    public String getAccessToken(final User user) throws BadRequestException {
+    public String getAccessToken(final int characterId) throws BadRequestException, UnknownUserException {
+
+        final Optional<User> optUser = userRepository.find(characterId);
+        if (!optUser.isPresent()) {
+            LOG.warn("User not found for characterId " + characterId);
+            throw new UnknownUserException(characterId);
+        }
+
+        final User user = optUser.get();
+
         if (new Date().before(user.getAccessTokenExpiry())) {
             return user.getAccessToken();
         } else {

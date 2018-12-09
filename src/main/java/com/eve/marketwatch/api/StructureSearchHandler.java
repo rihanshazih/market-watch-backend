@@ -3,12 +3,11 @@ package com.eve.marketwatch.api;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.eve.marketwatch.exceptions.BadRequestException;
+import com.eve.marketwatch.exceptions.UnknownUserException;
 import com.eve.marketwatch.jobs.StationResolver;
 import com.eve.marketwatch.jobs.StructureResolver;
 import com.eve.marketwatch.model.dao.Structure;
 import com.eve.marketwatch.model.dao.StructureRepository;
-import com.eve.marketwatch.model.dao.User;
-import com.eve.marketwatch.model.dao.UserRepository;
 import com.eve.marketwatch.service.EveAuthService;
 import com.eve.marketwatch.service.SecurityService;
 import org.apache.logging.log4j.LogManager;
@@ -33,7 +32,6 @@ public class StructureSearchHandler implements RequestHandler<Map<String, Object
     private final javax.ws.rs.client.Client webClient = ClientBuilder.newClient();
     private final StructureRepository structureRepository = StructureRepository.getInstance();
     private final EveAuthService eveAuthService = new EveAuthService();
-    private final UserRepository userRepository = UserRepository.getInstance();
     private final SecurityService securityService = new SecurityService();
 
 	@Override
@@ -66,19 +64,10 @@ public class StructureSearchHandler implements RequestHandler<Map<String, Object
 					.build();
 		}
 
-		final Optional<User> optUser = userRepository.find(characterId);
-		if (!optUser.isPresent()) {
-			LOG.warn("User not found for characterId " + characterId);
-			return ApiGatewayResponse.builder()
-					.setStatusCode(404)
-					.build();
-		}
 		final String accessToken;
-		final User user = optUser.get();
 		try {
-			accessToken = eveAuthService.getAccessToken(user);
-		} catch (BadRequestException e) {
-			LOG.warn("Failed to get access token for characterId " + user.getCharacterId());
+			accessToken = eveAuthService.getAccessToken(characterId);
+		} catch (BadRequestException | UnknownUserException e) {
 			return ApiGatewayResponse.builder()
 					.setStatusCode(403)
 					.build();

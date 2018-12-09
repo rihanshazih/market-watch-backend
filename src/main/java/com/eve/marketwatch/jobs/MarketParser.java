@@ -3,9 +3,8 @@ package com.eve.marketwatch.jobs;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.eve.marketwatch.api.ApiGatewayResponse;
-import com.eve.marketwatch.model.dao.Structure;
-import com.eve.marketwatch.service.EveAuthService;
 import com.eve.marketwatch.exceptions.BadRequestException;
+import com.eve.marketwatch.exceptions.UnknownUserException;
 import com.eve.marketwatch.model.dao.ItemSnapshot;
 import com.eve.marketwatch.model.dao.ItemSnapshotRepository;
 import com.eve.marketwatch.model.dao.ItemWatch;
@@ -13,10 +12,12 @@ import com.eve.marketwatch.model.dao.ItemWatchRepository;
 import com.eve.marketwatch.model.dao.Mail;
 import com.eve.marketwatch.model.dao.MailRepository;
 import com.eve.marketwatch.model.dao.MailStatus;
-import com.eve.marketwatch.model.esi.MarketOrderResponse;
+import com.eve.marketwatch.model.dao.Structure;
 import com.eve.marketwatch.model.dao.StructureRepository;
 import com.eve.marketwatch.model.dao.User;
 import com.eve.marketwatch.model.dao.UserRepository;
+import com.eve.marketwatch.model.esi.MarketOrderResponse;
+import com.eve.marketwatch.service.EveAuthService;
 import com.google.gson.GsonBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -95,7 +96,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
             try {
                 parseMarket(typeIds, structure, characterId, itemSnapshots);
                 resetUserErrors(characterId);
-            } catch (BadRequestException e) {
+            } catch (BadRequestException | UnknownUserException e) {
 
                 if (e.getMessage().contains("invalid_token")) {
                     LOG.warn("Got an invalid_token for " + characterId);
@@ -149,7 +150,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         mailRepository.save(mail);
     }
 
-    private void parseMarket(final Set<Integer> typeIds, final Structure structure, final int characterId, List<ItemSnapshot> itemSnapshots) throws BadRequestException {
+    private void parseMarket(final Set<Integer> typeIds, final Structure structure, final int characterId, List<ItemSnapshot> itemSnapshots) throws BadRequestException, UnknownUserException {
         final HashMap<Integer, Long> volumes = new HashMap<>();
         final long locationId = structure.getStructureId();
         final List<MarketOrderResponse> marketOrders = getMarketOrders(characterId, locationId)
@@ -179,10 +180,10 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         }
     }
 
-    private List<MarketOrderResponse> getMarketOrders(final int characterId, final long structureId) throws BadRequestException {
+    private List<MarketOrderResponse> getMarketOrders(final int characterId, final long structureId) throws BadRequestException, UnknownUserException {
         int page = 1;
         final List<MarketOrderResponse> marketOrders = new ArrayList<>();
-        final String accessToken = getAccessToken(characterId);
+        final String accessToken = eveAuthService.getAccessToken(characterId);
         List<MarketOrderResponse> chunk;
         do {
             chunk = getMarketOrders(structureId, accessToken, page++);
@@ -190,15 +191,6 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
             marketOrders.addAll(chunk);
         } while (!chunk.isEmpty());
         return marketOrders;
-    }
-
-    // todo: move into auth service so that we only need the characterId to trigger the function
-    private String getAccessToken(final int characterId) throws BadRequestException {
-        final Optional<User> user = userRepository.find(characterId);
-        if (!user.isPresent()) {
-            throw new BadRequestException("User " + characterId + "does not exist anymore.");
-        }
-        return eveAuthService.getAccessToken(user.get());
     }
 
     private List<MarketOrderResponse> getMarketOrders(final long structureId, final String accessToken, final int page) throws BadRequestException {

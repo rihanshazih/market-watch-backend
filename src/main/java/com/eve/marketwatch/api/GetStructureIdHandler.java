@@ -3,7 +3,7 @@ package com.eve.marketwatch.api;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.eve.marketwatch.exceptions.BadRequestException;
-import com.eve.marketwatch.model.dao.User;
+import com.eve.marketwatch.exceptions.UnknownUserException;
 import com.eve.marketwatch.model.dao.UserRepository;
 import com.eve.marketwatch.model.esi.SearchResponse;
 import com.eve.marketwatch.service.EveAuthService;
@@ -52,17 +52,10 @@ public class GetStructureIdHandler implements RequestHandler<Map<String, Object>
 
 		final String term = InputExtractor.getQueryParam("term", input);
 
-		final Optional<User> user = userRepository.find(characterId);
-		if (!user.isPresent()) {
-			LOG.warn("User not found for characterId " + characterId);
-			return ApiGatewayResponse.builder()
-					.setStatusCode(404)
-					.build();
-		}
 		final String accessToken;
 		try {
-			accessToken = eveAuthService.getAccessToken(user.get());
-		} catch (BadRequestException e) {
+			accessToken = eveAuthService.getAccessToken(characterId);
+		} catch (BadRequestException | UnknownUserException e) {
 			LOG.warn("Failed to get access token for characterId " + characterId);
 			return ApiGatewayResponse.builder()
 					.setStatusCode(403)
