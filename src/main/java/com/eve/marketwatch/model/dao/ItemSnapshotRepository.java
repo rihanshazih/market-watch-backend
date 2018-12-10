@@ -18,7 +18,6 @@ public class ItemSnapshotRepository {
     }
 
     public ItemSnapshot save(ItemSnapshot itemSnapshot) {
-        System.out.println("Saving " + itemSnapshot);
         DynamoDBMapper mapper = new DynamoDBMapper(this.client);
         mapper.save(itemSnapshot);
         return itemSnapshot;

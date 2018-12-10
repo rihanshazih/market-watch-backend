@@ -21,7 +21,6 @@ public class ItemWatchRepository {
     }
 
     public ItemWatch save(ItemWatch itemWatch) {
-        System.out.println("Saving " + itemWatch);
         DynamoDBMapper mapper = new DynamoDBMapper(this.client);
         mapper.save(itemWatch);
         return itemWatch;

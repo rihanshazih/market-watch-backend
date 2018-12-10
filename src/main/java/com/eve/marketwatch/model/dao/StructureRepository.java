@@ -23,7 +23,6 @@ public class StructureRepository {
     }
 
     public Structure save(final Structure structure) {
-        System.out.println("Saving " + structure);
         DynamoDBMapper mapper = new DynamoDBMapper(this.client);
         mapper.save(structure);
         return structure;

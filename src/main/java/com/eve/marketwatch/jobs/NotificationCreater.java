@@ -77,7 +77,7 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 	}
 
 	private void process(final int characterId) {
-		LOG.info("Processing mail for " + characterId);
+		LOG.info("Creating mail for " + characterId);
 		final String text = buildText(characterId);
 		final Mail mail = createMail(characterId, text);
 		mailRepository.save(mail);

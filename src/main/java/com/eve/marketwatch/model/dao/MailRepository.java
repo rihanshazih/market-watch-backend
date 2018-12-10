@@ -21,7 +21,6 @@ public class MailRepository {
     }
 
     public Mail save(Mail mail) {
-        System.out.println("Saving " + mail);
         DynamoDBMapper mapper = new DynamoDBMapper(this.client);
         mapper.save(mail);
         return mail;

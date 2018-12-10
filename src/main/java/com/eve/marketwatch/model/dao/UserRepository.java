@@ -23,7 +23,6 @@ public class UserRepository {
     }
 
     public User save(User user) {
-        System.out.println("Saving " + user);
         DynamoDBMapper mapper = new DynamoDBMapper(this.client);
         mapper.save(user);
         return user;

@@ -219,10 +219,10 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         }
 
         final String json = response.readEntity(String.class);
-        LOG.info(json);
         if (response.getStatus() == 200) {
             return Arrays.asList(new GsonBuilder().create().fromJson(json, MarketOrderResponse[].class));
         } else {
+            LOG.warn(json);
             throw new BadRequestException("Failed to retrieve market orders for " + structure.getStructureId());
         }
     }
