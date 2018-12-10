@@ -142,7 +142,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         mail.setRecipient(user.getCharacterId());
         mail.setSubject("Eve Market Watch - Deactivated");
         mail.setText("Your account at https://eve-market-watch.firebaseapp.com has been deactivated due to an " +
-                "invalid token. Please sign in to reactive your account.");
+                "invalid token. Please sign in to reactivate your account.");
         mailRepository.save(mail);
     }
 
@@ -179,7 +179,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
     private List<MarketOrderResponse> getMarketOrders(final int characterId, final Structure structure) throws BadRequestException, UnknownUserException {
 
         int page = 1;
-        final List<MarketOrderResponse> marketOrders = new ArrayList<>();
+        List<MarketOrderResponse> marketOrders = new ArrayList<>();
         final String accessToken = eveAuthService.getAccessToken(characterId);
         List<MarketOrderResponse> chunk;
         do {
@@ -187,6 +187,14 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
             LOG.info("Collected another chunk with size " + chunk.size());
             marketOrders.addAll(chunk);
         } while (!chunk.isEmpty());
+
+        // filter out non-station orders that may have been retrieved from the region
+        if (structure.isNpcStation()) {
+            marketOrders = marketOrders.stream()
+                    .filter(m -> m.getVolumeRemain() == structure.getStructureId())
+                    .collect(Collectors.toList());
+        }
+
         return marketOrders;
     }
 
