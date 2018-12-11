@@ -168,8 +168,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
                 processPlayerOwnedMarket(itemWatches, structure, itemSnapshots);
             }
         } else {
-            // if this point is reached, we likely have a bug
-            throw new RuntimeException("No character has watches for " + structure.getStructureId());
+            LOG.warn("No character found for " + structure.getStructureId());
         }
     }
 
@@ -349,10 +348,10 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
     }
 
     private Optional<Integer> findCharacterWithAccess(final Structure structure, final List<ItemWatch> itemWatches) {
-        // todo: this failed recently when a character revoked access and we didn't remove his watches
         return itemWatches.stream()
-                .filter(i -> i.getLocationId() == structure.getStructureId())
+                .filter(watch -> watch.getLocationId() == structure.getStructureId())
                 .map(ItemWatch::getCharacterId)
+                .filter(characterId -> userRepository.find(characterId).isPresent())
                 .findAny();
     }
 }
