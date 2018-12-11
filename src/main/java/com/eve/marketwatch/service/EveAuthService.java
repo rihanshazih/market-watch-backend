@@ -47,7 +47,7 @@ public class EveAuthService {
         } else {
             final AccessTokenResponse response = getAccessToken(user.getRefreshToken(), CLIENT_ID, CLIENT_SECRET);
             user.setAccessToken(response.getAccessToken());
-            // -300 to give a 5 minute period before the token would expire
+            // -120 to give a 2 minute (2x60) period before the token would expire
             user.setAccessTokenExpiry(Date.from(Instant.now().plus(response.getExpiresIn() - 120L, ChronoUnit.SECONDS)));
             userRepository.save(user);
             return user.getAccessToken();
