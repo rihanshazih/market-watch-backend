@@ -74,23 +74,86 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
 
         final List<ItemWatch> itemWatches = itemWatchRepository.findAll();
         final Set<Long> locationIds = itemWatches.stream().map(ItemWatch::getLocationId).collect(Collectors.toSet());
-        final Set<Integer> typeIds = itemWatches.stream().map(ItemWatch::getTypeId).collect(Collectors.toSet());
 
         final List<Structure> structures = structureRepository.findAll().stream()
                 .filter(market -> locationIds.contains(market.getStructureId()))
                 .collect(Collectors.toList());
+
         for (final Structure structure : structures) {
-            processMarket(itemWatches, typeIds, structure, itemSnapshots);
+            if (!structure.isNpcStation()) {
+                processPlayerOwnedMarket(itemWatches, structure, itemSnapshots);
+            }
+        }
+
+        final Map<Integer, List<Structure>> npcStationsGroupedByRegion = groupNpcStructures(structures);
+        for (Map.Entry<Integer, List<Structure>> entry : npcStationsGroupedByRegion.entrySet()) {
+            final Integer regionId = entry.getKey();
+            try {
+                final List<Structure> regionStructures = entry.getValue();
+                processRegion(itemSnapshots, itemWatches, regionId, regionStructures);
+            } catch (BadRequestException e) {
+                LOG.error(e);
+            }
         }
     }
 
-    private void processMarket(final List<ItemWatch> itemWatches, final Set<Integer> typeIds, final Structure structure, List<ItemSnapshot> itemSnapshots) {
+    private void processRegion(List<ItemSnapshot> itemSnapshots, List<ItemWatch> itemWatches, Integer regionId, List<Structure> regionStructures) throws BadRequestException {
+        final Set<Integer> typeIds = itemWatches.stream()
+                .filter(w -> regionStructures.stream().anyMatch(s -> s.getStructureId() == w.getLocationId()))
+                .map(ItemWatch::getTypeId)
+                .collect(Collectors.toSet());
+
+        final List<MarketOrderResponse> regionMarketOrders = getRegionMarketOrders(regionId);
+        final List<MarketOrderResponse> marketOrders = regionMarketOrders
+                .stream()
+                .filter(m -> !m.isBuyOrder())
+                .filter(m -> typeIds.contains(m.getTypeId()))
+                .collect(Collectors.toList());
+
+        for (Structure structure : regionStructures) {
+            final List<MarketOrderResponse> structureMarketOrders = marketOrders.stream()
+                    .filter(o -> o.getLocationId() == structure.getStructureId())
+                    .filter(o -> itemWatches.stream().anyMatch(w -> w.getLocationId() == o.getLocationId()))
+                    .collect(Collectors.toList());
+
+            final HashMap<Integer, Long> volumes = computeVolumes(structureMarketOrders);
+            writeSnapshots(itemSnapshots, structure.getStructureId(), volumes);
+        }
+    }
+
+    private Map<Integer, List<Structure>> groupNpcStructures(List<Structure> structures) {
+        final Map<Integer, List<Structure>> npcStationsGroupedByRegion = new HashMap<>();
+        for (Structure structure : structures) {
+            if (!structure.isNpcStation()) {
+                continue;
+            }
+            try {
+                final int regionId = getRegionId(structure);
+                if (!npcStationsGroupedByRegion.containsKey(regionId)) {
+                    npcStationsGroupedByRegion.put(regionId, new ArrayList<>());
+                }
+                final List<Structure> list = npcStationsGroupedByRegion.get(regionId);
+                list.add(structure);
+                npcStationsGroupedByRegion.put(regionId, list);
+            } catch (BadRequestException e) {
+                LOG.error(e);
+            }
+        }
+        return npcStationsGroupedByRegion;
+    }
+
+    private void processPlayerOwnedMarket(final List<ItemWatch> itemWatches, final Structure structure, List<ItemSnapshot> itemSnapshots) {
         LOG.info("Parsing structure for locationId " + structure.getStructureId());
+
+        final Set<Integer> typeIds = itemWatches.stream()
+                .filter(w -> w.getLocationId() == structure.getStructureId())
+                .map(ItemWatch::getTypeId).collect(Collectors.toSet());
+
         final Optional<Integer> accessCharacterId = findCharacterWithAccess(structure, itemWatches);
         if (accessCharacterId.isPresent()) {
             final int characterId = accessCharacterId.get();
             try {
-                parseMarket(typeIds, structure, characterId, itemSnapshots);
+                parsePlayerOwnedMarket(typeIds, structure, characterId, itemSnapshots);
                 resetUserErrors(characterId);
             } catch (BadRequestException | UnknownUserException e) {
 
@@ -102,7 +165,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
                 LOG.warn("Failed to parse structure " + structure.getStructureId() + " with character "
                         + characterId + ": " + e.getMessage());
                 // try again with next character
-                processMarket(itemWatches, typeIds, structure, itemSnapshots);
+                processPlayerOwnedMarket(itemWatches, structure, itemSnapshots);
             }
         } else {
             // if this point is reached, we likely have a bug
@@ -146,23 +209,24 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         mailRepository.save(mail);
     }
 
-    private void parseMarket(final Set<Integer> typeIds, final Structure structure, final int characterId, List<ItemSnapshot> itemSnapshots) throws BadRequestException, UnknownUserException {
-        final HashMap<Integer, Long> volumes = new HashMap<>();
+    private void parsePlayerOwnedMarket(Set<Integer> typeIds, final Structure structure, final int characterId, List<ItemSnapshot> itemSnapshots) throws BadRequestException, UnknownUserException {
         final long locationId = structure.getStructureId();
-        final List<MarketOrderResponse> marketOrders = getMarketOrders(characterId, structure)
+        final List<MarketOrderResponse> marketOrders = getPlayerStructureMarketOrders(characterId, structure)
                 .stream()
                 .filter(m -> !m.isBuyOrder())
                 .filter(m -> typeIds.contains(m.getTypeId()))
                 .collect(Collectors.toList());
-        for (final MarketOrderResponse order : marketOrders) {
-            volumes.computeIfPresent(order.getTypeId(), (integer, aLong) -> aLong + order.getVolumeRemain());
-            volumes.putIfAbsent(order.getTypeId(), (long) order.getVolumeRemain());
-        }
 
+        final HashMap<Integer, Long> volumes = computeVolumes(marketOrders);
+
+        writeSnapshots(itemSnapshots, locationId, volumes);
+    }
+
+    private void writeSnapshots(List<ItemSnapshot> existingSnapshots, long locationId, HashMap<Integer, Long> volumes) {
         for (final Map.Entry<Integer, Long> entry : volumes.entrySet()) {
             final int typeId = entry.getKey();
             final long amount = entry.getValue();
-            final boolean alreadyExists = itemSnapshots.stream()
+            final boolean alreadyExists = existingSnapshots.stream()
                     .filter(w -> w.getAmount() == amount)
                     .anyMatch(w -> w.getTypeId() == typeId && w.getLocationId() == locationId);
             if (!alreadyExists) {
@@ -176,47 +240,68 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         }
     }
 
-    private List<MarketOrderResponse> getMarketOrders(final int characterId, final Structure structure) throws BadRequestException, UnknownUserException {
+    private HashMap<Integer, Long> computeVolumes(List<MarketOrderResponse> marketOrders) {
+        final HashMap<Integer, Long> volumes = new HashMap<>();
+        for (final MarketOrderResponse order : marketOrders) {
+            volumes.computeIfPresent(order.getTypeId(), (integer, aLong) -> aLong + order.getVolumeRemain());
+            volumes.putIfAbsent(order.getTypeId(), (long) order.getVolumeRemain());
+        }
+        return volumes;
+    }
+
+    private List<MarketOrderResponse> getRegionMarketOrders(final int regionId) throws BadRequestException {
+        int page = 1;
+        List<MarketOrderResponse> marketOrders = new ArrayList<>();
+        List<MarketOrderResponse> chunk;
+        do {
+            chunk = getRegionMarketOrders(regionId, page++);
+            LOG.info("Collected another chunk with size " + chunk.size());
+            marketOrders.addAll(chunk);
+        } while (!chunk.isEmpty());
+        return marketOrders;
+    }
+
+    private List<MarketOrderResponse> getRegionMarketOrders(int regionId, int page) throws BadRequestException {
+        LOG.info("Loading market orders for regionId/page: " + regionId + "/" + page);
+        final Response response = webClient.target("https://esi.evetech.net")
+                .path("/v1/markets/" + regionId + "/orders/")
+                .queryParam("order_type", "sell")
+                .queryParam("page", page)
+                .request()
+                .get();
+
+        final String json = response.readEntity(String.class);
+        if (response.getStatus() == 200) {
+            return Arrays.asList(new GsonBuilder().create().fromJson(json, MarketOrderResponse[].class));
+        } else {
+            LOG.warn(json);
+            throw new BadRequestException("Failed to retrieve market orders for region " + regionId);
+        }
+    }
+
+    private List<MarketOrderResponse> getPlayerStructureMarketOrders(final int characterId, final Structure structure) throws BadRequestException, UnknownUserException {
 
         int page = 1;
         List<MarketOrderResponse> marketOrders = new ArrayList<>();
         final String accessToken = eveAuthService.getAccessToken(characterId);
         List<MarketOrderResponse> chunk;
         do {
-            chunk = getMarketOrders(structure, accessToken, page++);
+            chunk = getPlayerStructureMarketOrders(structure, accessToken, page++);
             LOG.info("Collected another chunk with size " + chunk.size());
             marketOrders.addAll(chunk);
         } while (!chunk.isEmpty());
 
-        // filter out non-station orders that may have been retrieved from the region
-        if (structure.isNpcStation()) {
-            marketOrders = marketOrders.stream()
-                    .filter(m -> m.getVolumeRemain() == structure.getStructureId())
-                    .collect(Collectors.toList());
-        }
-
         return marketOrders;
     }
 
-    private List<MarketOrderResponse> getMarketOrders(final Structure structure, final String accessToken, final int page) throws BadRequestException {
+    private List<MarketOrderResponse> getPlayerStructureMarketOrders(final Structure structure, final String accessToken, final int page) throws BadRequestException {
         LOG.info("Loading market orders for structureId/page: " + structure.getStructureId() + "/" + page);
-        final Response response;
-        if (structure.isNpcStation()) {
-            final int regionId = getRegionId(structure);
-            response = webClient.target("https://esi.evetech.net")
-                    .path("/v1/markets/" + regionId + "/orders/")
-                    .queryParam("order_type", "sell")
-                    .queryParam("page", page)
-                    .request()
-                    .get();
-        } else {
-            response = webClient.target("https://esi.evetech.net")
-                    .path("/v1/markets/structures/" + structure.getStructureId() + "/")
-                    .queryParam("page", page)
-                    .request()
-                    .header("Authorization", "Bearer " + accessToken)
-                    .get();
-        }
+        final Response response = webClient.target("https://esi.evetech.net")
+                .path("/v1/markets/structures/" + structure.getStructureId() + "/")
+                .queryParam("page", page)
+                .request()
+                .header("Authorization", "Bearer " + accessToken)
+                .get();
 
         final String json = response.readEntity(String.class);
         if (response.getStatus() == 200) {
@@ -264,6 +349,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
     }
 
     private Optional<Integer> findCharacterWithAccess(final Structure structure, final List<ItemWatch> itemWatches) {
+        // todo: this failed recently when a character revoked access and we didn't remove his watches
         return itemWatches.stream()
                 .filter(i -> i.getLocationId() == structure.getStructureId())
                 .map(ItemWatch::getCharacterId)
