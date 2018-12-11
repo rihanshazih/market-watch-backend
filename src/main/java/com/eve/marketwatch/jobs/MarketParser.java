@@ -2,6 +2,7 @@ package com.eve.marketwatch.jobs;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.eve.marketwatch.Constants;
 import com.eve.marketwatch.api.ApiGatewayResponse;
 import com.eve.marketwatch.exceptions.BadRequestException;
 import com.eve.marketwatch.exceptions.UnknownUserException;
@@ -49,6 +50,9 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
     private final EveAuthService eveAuthService;
     private final MailRepository mailRepository;
 
+    private final Map<Integer, Integer> systemToConstellationMappings = new HashMap<>();
+    private final Map<Integer, Integer> constellationToRegionMappings = new HashMap<>();
+
     public MarketParser() {
         structureRepository = StructureRepository.getInstance();
         userRepository = UserRepository.getInstance();
@@ -60,10 +64,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
 
     @Override
     public ApiGatewayResponse handleRequest(Map<String, Object> input, Context context) {
-        LOG.info("received: {}", input);
-
         doParse();
-
         return ApiGatewayResponse.builder()
                 .setStatusCode(200)
                 .build();
@@ -190,7 +191,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
             if (user.getErrorCount() >= 5) {
                 createDeactivationMail(user);
                 userRepository.delete(user);
-                LOG.warn(user.getCharacterId() + " has been deleted due to too many client errors.");
+                LOG.info(user.getCharacterId() + " has been deleted due to too many client errors.");
             } else {
                 userRepository.save(user);
             }
@@ -253,16 +254,16 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         List<MarketOrderResponse> marketOrders = new ArrayList<>();
         List<MarketOrderResponse> chunk;
         do {
+            LOG.info("Loading market orders for regionId/page: " + regionId + "/" + page);
             chunk = getRegionMarketOrders(regionId, page++);
-            LOG.info("Collected another chunk with size " + chunk.size());
+            LOG.info("Collected page " + page + " with size " + chunk.size());
             marketOrders.addAll(chunk);
         } while (!chunk.isEmpty());
         return marketOrders;
     }
 
     private List<MarketOrderResponse> getRegionMarketOrders(int regionId, int page) throws BadRequestException {
-        LOG.info("Loading market orders for regionId/page: " + regionId + "/" + page);
-        final Response response = webClient.target("https://esi.evetech.net")
+        final Response response = webClient.target(Constants.ESI_BASE_URL)
                 .path("/v1/markets/" + regionId + "/orders/")
                 .queryParam("order_type", "sell")
                 .queryParam("page", page)
@@ -285,8 +286,9 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         final String accessToken = eveAuthService.getAccessToken(characterId);
         List<MarketOrderResponse> chunk;
         do {
+            LOG.info("Loading market orders for structureId/page: " + structure.getStructureId() + "/" + page);
             chunk = getPlayerStructureMarketOrders(structure, accessToken, page++);
-            LOG.info("Collected another chunk with size " + chunk.size());
+            LOG.info("Collected page " + page + " with size " + chunk.size());
             marketOrders.addAll(chunk);
         } while (!chunk.isEmpty());
 
@@ -294,8 +296,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
     }
 
     private List<MarketOrderResponse> getPlayerStructureMarketOrders(final Structure structure, final String accessToken, final int page) throws BadRequestException {
-        LOG.info("Loading market orders for structureId/page: " + structure.getStructureId() + "/" + page);
-        final Response response = webClient.target("https://esi.evetech.net")
+        final Response response = webClient.target(Constants.ESI_BASE_URL)
                 .path("/v1/markets/structures/" + structure.getStructureId() + "/")
                 .queryParam("page", page)
                 .request()
@@ -311,40 +312,76 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         }
     }
 
-    private int getRegionId(Structure structure) throws BadRequestException {
+    private int getRegionId(Structure station) throws BadRequestException {
 
-        if (null != structure.getRegionId()) {
-            return structure.getRegionId();
+        if (null != station.getRegionId()) {
+            return station.getRegionId();
         }
 
-        final Response structureResponse = webClient.target("https://esi.evetech.net")
-                .path("/v2/universe/stations/" + structure.getStructureId() + "/")
+        // todo: pull the region resolution into an upstream lambda. this code is not really market parsing but pre-work
+        final StationInfoResponse stationInfo = getStationInfo(station.getStructureId());
+        final int constellationId = getConstellationId(stationInfo.getSystemId());
+        final int regionId = getRegionId(constellationId);
+
+        station.setRegionId(regionId);
+        structureRepository.save(station);
+
+        return regionId;
+    }
+
+    private int getRegionId(int constellationId) throws BadRequestException {
+        final int regionId;
+        if (constellationToRegionMappings.containsKey(constellationId)) {
+            regionId = constellationToRegionMappings.get(constellationId);
+        } else {
+            regionId = getConstellationInfo(constellationId).getRegionId();
+            constellationToRegionMappings.put(constellationId, regionId);
+        }
+        return regionId;
+    }
+
+    private int getConstellationId(int systemId) throws BadRequestException {
+        int constellationId;
+        if (systemToConstellationMappings.containsKey(systemId)) {
+            constellationId = systemToConstellationMappings.get(systemId);
+        } else {
+            constellationId = getSystemInfo(systemId).getConstellationId();
+            systemToConstellationMappings.put(systemId, constellationId);
+        }
+        return constellationId;
+    }
+
+    private ConstellationInfoResponse getConstellationInfo(int constellationId) throws BadRequestException {
+        final Response constellationResponse = webClient.target(Constants.ESI_BASE_URL)
+                .path("/v1/universe/constellations/" + constellationId + "/")
                 .request().get();
-        LOG.info("/v2/universe/stations/ response: " + structureResponse.getStatus());
-        if (structureResponse.getStatus() == 200) {
-            final StationInfoResponse stationInfo = new GsonBuilder().create().fromJson(structureResponse.readEntity(String.class), StationInfoResponse.class);
-            final Response systemResponse = webClient.target("https://esi.evetech.net")
-                    .path("/v4/universe/systems/" + stationInfo.getSystemId() + "/")
-                    .request().get();
-            LOG.info("/v4/universe/systems/ response: " + systemResponse.getStatus());
-            if (systemResponse.getStatus() == 200) {
-                final SystemInfoResponse systemInfo = new GsonBuilder().create().fromJson(structureResponse.readEntity(String.class), SystemInfoResponse.class);
-                final Response constellationResponse = webClient.target("https://esi.evetech.net")
-                        .path("/v1/universe/constellations/" + systemInfo.getConstellationId() + "/")
-                        .request().get();
-                LOG.info("/v1/universe/constellations/ response: " + systemResponse.getStatus());
-                if (constellationResponse.getStatus() == 200) {
-                    final ConstellationInfoResponse constellationInfo = new GsonBuilder().create().fromJson(structureResponse.readEntity(String.class), ConstellationInfoResponse.class);
-
-                    final int regionId = constellationInfo.getRegionId();
-                    structure.setRegionId(regionId);
-                    structureRepository.save(structure);
-
-                    return regionId;
-                }
-            }
+        if (constellationResponse.getStatus() != 200) {
+            LOG.warn(constellationResponse.getStatus() + ": " + constellationResponse.readEntity(String.class));
+            throw new BadRequestException("Failed to get constellation info for  " + constellationId);
         }
-        throw new BadRequestException("Failed to resolve station>system>constellation>region " + structure);
+        return new GsonBuilder().create().fromJson(constellationResponse.readEntity(String.class), ConstellationInfoResponse.class);
+    }
+
+    private SystemInfoResponse getSystemInfo(int systemId) throws BadRequestException {
+        final Response systemResponse = webClient.target(Constants.ESI_BASE_URL)
+                .path("/v4/universe/systems/" + systemId + "/")
+                .request().get();
+        if (systemResponse.getStatus() != 200) {
+            LOG.warn(systemResponse.getStatus() + ": " + systemResponse.readEntity(String.class));
+            throw new BadRequestException("Failed to get system info for  " + systemId);
+        }
+        return new GsonBuilder().create().fromJson(systemResponse.readEntity(String.class), SystemInfoResponse.class);
+    }
+
+    private StationInfoResponse getStationInfo(long stationId) throws BadRequestException {
+        final Response stationResponse = webClient.target(Constants.ESI_BASE_URL)
+                .path("/v2/universe/stations/" + stationId + "/")
+                .request().get();
+        if (stationResponse.getStatus() != 200) {
+            LOG.warn(stationResponse.getStatus() + ": " + stationResponse.readEntity(String.class));
+            throw new BadRequestException("Failed to get station info for  " + stationId);
+        }
+        return new GsonBuilder().create().fromJson(stationResponse.readEntity(String.class), StationInfoResponse.class);
     }
 
     private Optional<Integer> findCharacterWithAccess(final Structure structure, final List<ItemWatch> itemWatches) {

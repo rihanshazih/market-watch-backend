@@ -2,13 +2,14 @@ package com.eve.marketwatch.api;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.eve.marketwatch.service.SecurityService;
-import com.eve.marketwatch.model.evepraisal.EvepraisalItem;
-import com.eve.marketwatch.model.evepraisal.EvepraisalResponse;
+import com.eve.marketwatch.Constants;
 import com.eve.marketwatch.model.dao.ItemWatch;
 import com.eve.marketwatch.model.dao.ItemWatchRepository;
 import com.eve.marketwatch.model.esi.SearchEntry;
 import com.eve.marketwatch.model.esi.UniverseIdsResponse;
+import com.eve.marketwatch.model.evepraisal.EvepraisalItem;
+import com.eve.marketwatch.model.evepraisal.EvepraisalResponse;
+import com.eve.marketwatch.service.SecurityService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.GsonBuilder;
 import org.apache.logging.log4j.LogManager;
@@ -119,8 +120,8 @@ public class AddItemWatchHandler implements RequestHandler<Map<String, Object>, 
                 .get();
 
         final String json = appraisalResponse.readEntity(String.class);
-        LOG.info(json);
         if (appraisalResponse.getStatus() != 200) {
+            LOG.info(json);
             LOG.info("Evepraisal response code was " + appraisalResponse.getStatus());
             throw new NotFoundException();
         }
@@ -154,13 +155,13 @@ public class AddItemWatchHandler implements RequestHandler<Map<String, Object>, 
     }
 
     SearchEntry getTypeId(final String typeName) throws NotFoundException {
-        final Response idResponse = webClient.target("https://esi.evetech.net")
+        final Response idResponse = webClient.target(Constants.ESI_BASE_URL)
                 .path("/v1/universe/ids/")
                 .request()
                 .post(Entity.entity(singletonList(typeName), "application/json"));
         final String json = idResponse.readEntity(String.class);
-        LOG.info(json);
         if (idResponse.getStatus() != 200) {
+            LOG.info(json);
             LOG.error("Failed to resolve typeId for " + typeName + ": " + idResponse.getStatus());
             throw new NotFoundException();
         }

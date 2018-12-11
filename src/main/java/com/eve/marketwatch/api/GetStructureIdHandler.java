@@ -2,6 +2,7 @@ package com.eve.marketwatch.api;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.eve.marketwatch.Constants;
 import com.eve.marketwatch.exceptions.BadRequestException;
 import com.eve.marketwatch.exceptions.UnknownUserException;
 import com.eve.marketwatch.model.dao.Structure;
@@ -111,7 +112,7 @@ public class GetStructureIdHandler implements RequestHandler<Map<String, Object>
 
 		@Override
 		public Long call() throws Exception {
-			final Response searchResponse = webClient.target("https://esi.evetech.net")
+			final Response searchResponse = webClient.target(Constants.ESI_BASE_URL)
 					.path("/v2/search/")
 					.queryParam("categories", "station")
 					.queryParam("search", term)
@@ -154,7 +155,7 @@ public class GetStructureIdHandler implements RequestHandler<Map<String, Object>
 				return null;
 			}
 
-			final Response searchResponse = webClient.target("https://esi.evetech.net")
+			final Response searchResponse = webClient.target(Constants.ESI_BASE_URL)
 					.path("/v3/characters/" + characterId + "/search/")
 					.queryParam("categories", "structure")
 					.queryParam("search", term)

@@ -1,5 +1,6 @@
 package com.eve.marketwatch.api;
 
+import com.eve.marketwatch.Constants;
 import com.eve.marketwatch.model.dao.Structure;
 import com.eve.marketwatch.model.dao.StructureRepository;
 import com.eve.marketwatch.model.esi.SearchResponse;
@@ -56,7 +57,7 @@ public class StructureResolver implements Callable<List<String>> {
 
     @Override
     public List<String> call() throws Exception {
-        final Response searchResponse = webClient.target("https://esi.evetech.net")
+        final Response searchResponse = webClient.target(Constants.ESI_BASE_URL)
                 .path("/v3/characters/" + characterId + "/search/")
                 .queryParam("categories", "structure")
                 .queryParam("search", term)
@@ -66,8 +67,8 @@ public class StructureResolver implements Callable<List<String>> {
                 .get();
 
         final String json = searchResponse.readEntity(String.class);
-        LOG.info(json);
         if (searchResponse.getStatus() != 200) {
+            LOG.info(json);
             LOG.warn("Response from structure search was " + searchResponse.getStatus());
             return Collections.emptyList();
         }
@@ -142,7 +143,7 @@ public class StructureResolver implements Callable<List<String>> {
         @Override
         public Structure call() throws Exception {
             LOG.info("Resolving name for structureId " + structureId);
-            final Response nameResponse = webClient.target("https://esi.evetech.net")
+            final Response nameResponse = webClient.target(Constants.ESI_BASE_URL)
                     .path("/v2/universe/structures/" + structureId + "/")
                     .request()
                     .header("Authorization", "Bearer " + accessToken)
@@ -156,8 +157,8 @@ public class StructureResolver implements Callable<List<String>> {
                 structure.setTypeId(structureInfo.getTypeId());
                 return structure;
             } else {
-                LOG.info(nameJson);
                 LOG.warn(nameResponse.getStatus());
+                LOG.info(nameJson);
                 return null;
             }
         }

@@ -46,8 +46,6 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 
 	@Override
 	public ApiGatewayResponse handleRequest(Map<String, Object> input, Context context) {
-		LOG.info("received: {}", input);
-
 		doCreate();
 
 		return ApiGatewayResponse.builder()

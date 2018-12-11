@@ -1,5 +1,6 @@
 package com.eve.marketwatch.api;
 
+import com.eve.marketwatch.Constants;
 import com.eve.marketwatch.model.dao.Structure;
 import com.eve.marketwatch.model.dao.StructureRepository;
 import com.eve.marketwatch.model.esi.SearchResponse;
@@ -44,7 +45,7 @@ public class StationResolver implements Callable<List<String>> {
 
     @Override
     public List<String> call() throws Exception {
-        final Response searchResponse = webClient.target("https://esi.evetech.net")
+        final Response searchResponse = webClient.target(Constants.ESI_BASE_URL)
                 .path("/v2/search/")
                 .queryParam("categories", "station")
                 .queryParam("search", term)
@@ -53,8 +54,8 @@ public class StationResolver implements Callable<List<String>> {
                 .get();
 
         final String json = searchResponse.readEntity(String.class);
-        LOG.info(json);
         if (searchResponse.getStatus() != 200) {
+            LOG.info(json);
             LOG.warn("Response from station search was " + searchResponse.getStatus());
             return Collections.emptyList();
         }
@@ -128,7 +129,7 @@ public class StationResolver implements Callable<List<String>> {
 
         @Override
         public Structure call() throws Exception {
-            final Response nameResponse = webClient.target("https://esi.evetech.net")
+            final Response nameResponse = webClient.target(Constants.ESI_BASE_URL)
                     .path("/v2/universe/stations/" + stationId + "/")
                     .request()
                     .get();

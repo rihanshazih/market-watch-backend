@@ -60,10 +60,10 @@ public class EveAuthService {
                 .post(Entity.entity("grant_type=refresh_token&refresh_token=" + refreshToken, "application/x-www-form-urlencoded"));
         LOG.info("Access token response code was " + response.getStatus());
         final String json = response.readEntity(String.class);
-        LOG.info(json);
         if (response.getStatus() == 200) {
             return new GsonBuilder().create().fromJson(json, AccessTokenResponse.class);
         } else {
+            LOG.warn(json);
             LOG.warn("Failed to get access token: " + response.getStatus());
             throw new BadRequestException("Failed to retrieve access token." + json);
         }
@@ -91,8 +91,8 @@ public class EveAuthService {
                 .post(Entity.entity("grant_type=authorization_code&code=" + code, "application/x-www-form-urlencoded"));
         LOG.info("Auth response code was " + response.getStatus());
         final String json = response.readEntity(String.class);
-        LOG.info(json);
         if (response.getStatus() != 200) {
+            LOG.info(json);
             LOG.info(code);
             final EsiError errorResponse = new GsonBuilder().create().fromJson(json, EsiError.class);
             throw new EsiException(errorResponse);

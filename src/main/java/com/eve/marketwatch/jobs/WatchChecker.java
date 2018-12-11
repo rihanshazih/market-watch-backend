@@ -36,8 +36,6 @@ public class WatchChecker implements RequestHandler<Map<String, Object>, ApiGate
 
 	@Override
 	public ApiGatewayResponse handleRequest(Map<String, Object> input, Context context) {
-		LOG.info("received: {}", input);
-
 		doCheck();
 
 		return ApiGatewayResponse.builder()

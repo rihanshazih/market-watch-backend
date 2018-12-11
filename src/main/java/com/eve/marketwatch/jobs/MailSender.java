@@ -2,6 +2,7 @@ package com.eve.marketwatch.jobs;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.eve.marketwatch.Constants;
 import com.eve.marketwatch.api.ApiGatewayResponse;
 import com.eve.marketwatch.exceptions.MailFailed;
 import com.eve.marketwatch.model.dao.UserRepository;
@@ -60,8 +61,6 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 
 	@Override
 	public ApiGatewayResponse handleRequest(Map<String, Object> input, Context context) {
-		LOG.info("received: {}", input);
-
 		try {
 			doSend();
 		} catch (final MailFailed mailFailed) {
@@ -115,19 +114,16 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 			throw new RuntimeException("Failed to generate access token for mail sending.");
 		}
 		final String accessToken = accessTokenResponse.getAccessToken();
-		LOG.info("Executing mail request");
 		final String payload = new GsonBuilder().create().toJson(mailRequest);
-		LOG.info(payload);
-		final Response mailResponse = webClient.target("https://esi.evetech.net")
+		final Response mailResponse = webClient.target(Constants.ESI_BASE_URL)
 				.path("/v1/characters/" + mailCharacterId + "/mail/")
 				.request()
 				.header("Authorization", "Bearer " + accessToken)
 				.post(Entity.entity(payload, "application/json"));
 		final String json = mailResponse.readEntity(String.class);
 		LOG.info(mailResponse.getStatus());
-		LOG.info(json);
-
 		if (mailResponse.getStatus() != 201) {
+		    LOG.info(json);
 			throw new MailFailed(mailResponse.getStatus(), mailRequest.getRecipients().get(0).getRecipientId());
 		}
 	}

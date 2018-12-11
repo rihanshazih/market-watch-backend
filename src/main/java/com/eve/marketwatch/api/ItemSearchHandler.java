@@ -2,6 +2,7 @@ package com.eve.marketwatch.api;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.eve.marketwatch.Constants;
 import com.eve.marketwatch.model.esi.SearchResponse;
 import com.eve.marketwatch.model.esi.NameResponse;
 import com.google.gson.GsonBuilder;
@@ -42,7 +43,7 @@ public class ItemSearchHandler implements RequestHandler<Map<String, Object>, Ap
 					.build();
 		}
 
-		final Response searchResponse = webClient.target("https://esi.evetech.net")
+		final Response searchResponse = webClient.target(Constants.ESI_BASE_URL)
 				.path("/v2/search/")
 				.queryParam("categories", "inventory_type")
 				.queryParam("language", "en-us")
@@ -60,7 +61,7 @@ public class ItemSearchHandler implements RequestHandler<Map<String, Object>, Ap
 		System.out.println(json);
 		final SearchResponse typeIds = new GsonBuilder().create().fromJson(json, SearchResponse.class);
 
-		final Response nameResponse = webClient.target("https://esi.evetech.net")
+		final Response nameResponse = webClient.target(Constants.ESI_BASE_URL)
 				.path("/v2/universe/names/")
 				.request()
 				.post(Entity.entity(typeIds.getInventoryTypes(), "application/json"));
