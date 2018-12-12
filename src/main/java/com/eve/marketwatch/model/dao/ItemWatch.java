@@ -21,6 +21,7 @@ public class ItemWatch {
     private boolean triggered;
     private boolean mailSent;
     private Date created;
+    private String comparator;
     // status process
     // triggered=false/mailSent=false -> triggered=true/mailSent=false -> triggered=true/mailSent=true -> triggered=mailSent=false
     //         base status                          WatchChecker                  MailSender                   WatchChecker
@@ -99,6 +100,14 @@ public class ItemWatch {
 
     public void setCreated(Date created) {
         this.created = created;
+    }
+
+    public String getComparator() {
+        return comparator;
+    }
+
+    public void setComparator(String comparator) {
+        this.comparator = comparator;
     }
 
     public void reset() {

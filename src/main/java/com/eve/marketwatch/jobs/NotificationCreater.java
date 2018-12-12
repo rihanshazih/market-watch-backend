@@ -108,6 +108,7 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 				.map(Optional::get).collect(Collectors.toList());
 
 		final StringBuilder builder = new StringBuilder();
+		builder.append("Hi!\nThis is your overview of market notifications from https://eve-market-watch.firebaseapp.com");
 
 		for (final Structure structure : structures) {
 			// <url=showinfo:47515//1027847407700>GE-8JV - SOTA FACTORY</url>
@@ -121,16 +122,16 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 					.filter(w -> w.getLocationId() == structure.getStructureId()).collect(Collectors.toList());
 			for (final ItemWatch watch : marketWatches) {
 				// <url=showinfo:608>Atron</url>
+				final boolean isLessThan = watch.getComparator() == null || watch.getComparator().equals("lt");
 				builder.append("<url=showinfo:").append(watch.getTypeId()).append(">")
 						.append(watch.getTypeName())
-						.append("</url>")
-						.append(" is below ").append(watch.getThreshold()).append(" units.\n");
+						.append("</url> is ")
+						.append(isLessThan ? "below " : "above ")
+						.append(watch.getThreshold()).append(" units.\n");
 			}
 			// todo: section styling
 			builder.append("\n\n");
 		}
-
-		builder.append("This mail was sent to you from https://eve-market-watch.firebaseapp.com");
 
 		return builder.toString();
 	}

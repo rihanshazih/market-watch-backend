@@ -57,7 +57,9 @@ public class WatchChecker implements RequestHandler<Map<String, Object>, ApiGate
 	private void checkWatch(List<ItemSnapshot> itemSnapshots, ItemWatch watch) {
 		for (ItemSnapshot snapshot : itemSnapshots) {
 			if (isSameLocationAndType(watch, snapshot)) {
-				if (snapshot.getAmount() < watch.getThreshold()) {
+				final boolean isLessThan = watch.getComparator() == null || watch.getComparator().equals("lt");
+				if (isLessThan && snapshot.getAmount() < watch.getThreshold()
+					|| !isLessThan && snapshot.getAmount() > watch.getThreshold()) {
 					if (!watch.isTriggered()) {
 						LOG.info("Triggered watch: " + watch);
 						watch.setTriggered(true);
