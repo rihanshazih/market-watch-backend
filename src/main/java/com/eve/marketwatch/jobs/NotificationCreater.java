@@ -54,23 +54,26 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 	}
 
 	void doCreate() {
-		final Set<Integer> characterIds = userRepository.findAll().stream()
+		final Set<Integer> allCharacterIds = userRepository.findAll().stream()
 				.map(User::getCharacterId).collect(Collectors.toSet());
 		// todo: move filtering to DB
 		final List<ItemWatch> itemWatches = itemWatchRepository.findAll().stream()
-				.filter(w -> characterIds.contains(w.getCharacterId()))
+				.filter(w -> allCharacterIds.contains(w.getCharacterId()))
 				.filter(w -> !w.isMailSent() && w.isTriggered())
 				.collect(Collectors.toList());
 
 		LOG.info("Found " + itemWatches.size() + " watches that should receive a mail.");
 
-		if (!itemWatches.isEmpty()) {
-			LOG.info("Creating mail for " + itemWatches.size() + " item watches.");
-			for (ItemWatch itemWatch : itemWatches) {
-				process(itemWatch.getCharacterId());
-				itemWatch.setMailSent(true);
-				itemWatchRepository.save(itemWatch);
-			}
+		final Set<Integer> characterIds = itemWatches.stream()
+				.peek(w -> w.setMailSent(true))
+				.peek(itemWatchRepository::save)
+				.map(ItemWatch::getCharacterId)
+				.collect(Collectors.toSet());
+
+		LOG.info("Creating mail for " + characterIds.size() + " characters.");
+
+		for (Integer characterId : characterIds) {
+			process(characterId);
 		}
 	}
 
