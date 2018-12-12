@@ -20,6 +20,7 @@ import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
+import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -88,6 +89,7 @@ public class AddItemWatchHandler implements RequestHandler<Map<String, Object>, 
         }
 
         watch.setCharacterId(characterId);
+        watch.setCreated(new Date());
 
         try {
             if (watch.getTypeName().contains("evepraisal")) {
@@ -142,6 +144,7 @@ public class AddItemWatchHandler implements RequestHandler<Map<String, Object>, 
             itemWatch.setTypeId(item.getTypeID());
             itemWatch.setTypeName(item.getTypeName());
             itemWatch.setThreshold(item.getQuantity());
+            itemWatch.setCreated(watchRequest.getCreated());
             itemWatchRepository.save(itemWatch);
         }
     }

@@ -82,7 +82,7 @@ public class WatchChecker implements RequestHandler<Map<String, Object>, ApiGate
             watch.setCreated(Date.from(Instant.now().minus(1, ChronoUnit.HOURS)));
             itemWatchRepository.save(watch);
         }
-		return watch.getCreated().after(Date.from(Instant.now().minus(MISSING_DELAY, ChronoUnit.MINUTES)));
+		return watch.getCreated().before(Date.from(Instant.now().minus(MISSING_DELAY, ChronoUnit.MINUTES)));
 	}
 
 	private void handleMissingSnapshot(ItemWatch watch) {
