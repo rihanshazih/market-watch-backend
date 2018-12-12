@@ -65,8 +65,6 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 		LOG.info("Found " + itemWatches.size() + " watches that should receive a mail.");
 
 		final Set<Integer> characterIds = itemWatches.stream()
-				.peek(w -> w.setMailSent(true))
-				.peek(itemWatchRepository::save)
 				.map(ItemWatch::getCharacterId)
 				.collect(Collectors.toSet());
 
@@ -75,6 +73,11 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 		for (Integer characterId : characterIds) {
 			process(characterId);
 		}
+
+		itemWatches.forEach(w -> {
+					w.setMailSent(true);
+					itemWatchRepository.save(w);
+				});
 	}
 
 	private void process(final int characterId) {
