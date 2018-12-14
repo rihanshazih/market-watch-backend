@@ -97,7 +97,7 @@ public class WatchChecker implements RequestHandler<Map<String, Object>, ApiGate
 				return;
 			}
 		}
-		if (isOlderThanMinimumDelay(watch) && !watch.isTriggered()) {
+		if (isOlderThanMinimumDelay(watch) && !watch.isTriggered() && watch.getComparator().startsWith("<")) {
 			handleMissingSnapshot(watch);
 		}
 	}
