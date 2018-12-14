@@ -55,7 +55,9 @@ public class GetMyMarketsHandler implements RequestHandler<Map<String, Object>, 
         final Set<Long> structureIds = itemWatchRepository.findByCharacterId(characterId).stream()
                 .map(ItemWatch::getLocationId).collect(Collectors.toSet());
         final List<Structure> structures = structureRepository.findAll().stream()
-                .filter(s -> structureIds.contains(s.getStructureId())).collect(Collectors.toList());
+                .filter(s -> structureIds.contains(s.getStructureId()))
+                .sorted((o1, o2) -> o1.getStructureName().compareToIgnoreCase(o2.getStructureName()))
+                .collect(Collectors.toList());
 
         return ApiGatewayResponse.builder()
                 .setStatusCode(200)
