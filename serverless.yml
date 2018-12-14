@@ -102,6 +102,13 @@ functions:
           path: itemwatch/{id}
           method: delete
           cors: true
+  deleteItemWatches:
+    handler: com.eve.marketwatch.api.DeleteItemWatchesHandler
+    events:
+      - http:
+          path: itemwatch
+          method: delete
+          cors: true
   searchItem:
     handler: com.eve.marketwatch.api.ItemSearchHandler
     events:
@@ -122,6 +129,13 @@ functions:
       - http:
           path: structure/id
           method: get
+  getMyMarkets:
+    handler: com.eve.marketwatch.api.GetMyMarketsHandler
+    events:
+      - http:
+          path: markets
+          method: get
+          cors: true
 
   bulkMail:
     handler: com.eve.marketwatch.api.BulkNotificationHandler
