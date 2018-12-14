@@ -60,6 +60,7 @@ public class WatchChecker implements RequestHandler<Map<String, Object>, ApiGate
 
 				boolean activatedWatch = false;
 				final String comparator = watch.getComparator() == null ? "lt" : watch.getComparator();
+				LOG.info("Comparing " + comparator + " for " + watch.getTypeName() + " with " + snapshot.getAmount() + "/" + watch.getThreshold());
 				switch (comparator) {
 					case "le":
 						if (snapshot.getAmount() <= watch.getThreshold()) {

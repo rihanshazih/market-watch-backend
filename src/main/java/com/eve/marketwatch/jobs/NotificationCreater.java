@@ -109,7 +109,7 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 				.map(Optional::get).collect(Collectors.toList());
 
 		final StringBuilder builder = new StringBuilder();
-		builder.append("Hi!\nThis is your overview of market notifications from https://eve-market-watch.firebaseapp.com\n\n");
+		builder.append("Hi!\nThis is your overview of market notifications from <a href=\"https://eve-market-watch.firebaseapp.com\">Eve Market Watch</a>\n\n");
 
 		for (final Structure structure : structures) {
 			// <url=showinfo:47515//1027847407700>GE-8JV - SOTA FACTORY</url>
