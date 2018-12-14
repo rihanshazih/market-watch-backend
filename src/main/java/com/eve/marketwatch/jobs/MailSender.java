@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewayResponse> {
 
@@ -88,7 +89,7 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 		if (mails.isEmpty()) {
 			LOG.info("No new mails to be sent.");
 		} else {
-			final Mail mail = mails.get(0);
+			final Mail mail = mails.stream().sorted((o1, o2) -> o2.getPriority().compareTo(o1.getPriority())).collect(Collectors.toList()).get(0);
 			LOG.info("Processing mail " + mail.getId());
 			final MailRequest mailRequest = createMailRequest(mail.getSubject(), mail.getText(), mail.getRecipient());
 			submitMailRequest(mailRequest);

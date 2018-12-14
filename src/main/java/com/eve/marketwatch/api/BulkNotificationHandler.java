@@ -2,6 +2,7 @@ package com.eve.marketwatch.api;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.eve.marketwatch.model.dao.User;
 import com.eve.marketwatch.service.SecurityService;
 import com.eve.marketwatch.model.api.BulkMailRequest;
 import com.eve.marketwatch.model.dao.Mail;
@@ -55,17 +56,24 @@ public class BulkNotificationHandler implements RequestHandler<Map<String, Objec
 					.build();
 		}
 
-		userRepository.findAll().forEach(u -> {
-			final Mail mail = new Mail();
-			mail.setRecipient(u.getCharacterId());
-			mail.setMailStatus(MailStatus.NEW);
-			mail.setSubject(mailRequest.getSubject());
-			mail.setText(mailRequest.getText());
-			mailRepository.save(mail);
-		});
+		if (mailRequest.getRecipient() != null) {
+			userRepository.find(mailRequest.getRecipient()).ifPresent(u -> saveMail(mailRequest, u));
+		} else {
+			userRepository.findAll().forEach(u -> saveMail(mailRequest, u));
+		}
 
 		return ApiGatewayResponse.builder()
 				.setStatusCode(201)
 				.build();
+	}
+
+	private void saveMail(BulkMailRequest mailRequest, User u) {
+		final Mail mail = new Mail();
+		mail.setPriority(1);
+		mail.setRecipient(u.getCharacterId());
+		mail.setMailStatus(MailStatus.NEW);
+		mail.setSubject(mailRequest.getSubject());
+		mail.setText(mailRequest.getText());
+		mailRepository.save(mail);
 	}
 }

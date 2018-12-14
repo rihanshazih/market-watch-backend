@@ -89,6 +89,7 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 
 	private Mail createMail(final int characterId, final String text) {
 		final Mail mail = new Mail();
+		mail.setPriority(10);
 		mail.setRecipient(characterId);
 		mail.setSubject("Market watch notification");
 		mail.setText(text);
