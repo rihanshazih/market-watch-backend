@@ -123,12 +123,26 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 					.filter(w -> w.getLocationId() == structure.getStructureId()).collect(Collectors.toList());
 			for (final ItemWatch watch : marketWatches) {
 				// <url=showinfo:608>Atron</url>
-				final boolean isLessThan = watch.getComparator() == null || watch.getComparator().equals("lt");
 				builder.append("<url=showinfo:").append(watch.getTypeId()).append(">")
 						.append(watch.getTypeName())
-						.append("</url> is ")
-						.append(isLessThan ? "below " : "above ")
-						.append(watch.getThreshold()).append(" units.\n");
+						.append("</url> is ");
+
+				final String comparator = watch.getComparator() == null ? "lt" : watch.getComparator();
+				switch (comparator) {
+					case "ge":
+						builder.append("at or above");
+						break;
+					case "le":
+						builder.append("at or below");
+						break;
+					case "gt":
+						builder.append("above");
+						break;
+					case "lt":
+					default:
+						builder.append("below");
+				}
+				builder.append(" ").append(watch.getThreshold()).append(" units.\n");
 			}
 			// todo: section styling
 			builder.append("\n\n");

@@ -57,15 +57,38 @@ public class WatchChecker implements RequestHandler<Map<String, Object>, ApiGate
 	private void checkWatch(List<ItemSnapshot> itemSnapshots, ItemWatch watch) {
 		for (ItemSnapshot snapshot : itemSnapshots) {
 			if (isSameLocationAndType(watch, snapshot)) {
-				final boolean isLessThan = watch.getComparator() == null || watch.getComparator().equals("lt");
-				if (isLessThan && snapshot.getAmount() < watch.getThreshold()
-					|| !isLessThan && snapshot.getAmount() > watch.getThreshold()) {
-					if (!watch.isTriggered()) {
-						LOG.info("Triggered watch: " + watch);
-						watch.setTriggered(true);
-						itemWatchRepository.save(watch);
-					}
-				} else if (watch.isTriggered() || watch.isMailSent()) {
+
+				boolean activatedWatch = false;
+				final String comparator = watch.getComparator() == null ? "lt" : watch.getComparator();
+				switch (comparator) {
+					case "le":
+						if (snapshot.getAmount() <= watch.getThreshold()) {
+							triggerWatch(watch);
+							activatedWatch = true;
+						}
+						break;
+					case "ge":
+						if (snapshot.getAmount() >= watch.getThreshold()) {
+							triggerWatch(watch);
+							activatedWatch = true;
+						}
+						break;
+					case "gt":
+						if (snapshot.getAmount() > watch.getThreshold()) {
+							triggerWatch(watch);
+							activatedWatch = true;
+						}
+						break;
+					case "lt":
+					default:
+						if (snapshot.getAmount() < watch.getThreshold()) {
+							triggerWatch(watch);
+							activatedWatch = true;
+						}
+						break;
+				}
+
+				if (!activatedWatch && (watch.isTriggered() || watch.isMailSent())) {
 					LOG.info("Reset watch: " + watch);
 					watch.reset();
 					itemWatchRepository.save(watch);
@@ -75,6 +98,14 @@ public class WatchChecker implements RequestHandler<Map<String, Object>, ApiGate
 		}
 		if (isOlderThanMinimumDelay(watch) && !watch.isTriggered()) {
 			handleMissingSnapshot(watch);
+		}
+	}
+
+	private void triggerWatch(ItemWatch watch) {
+		if (!watch.isTriggered()) {
+			LOG.info("Triggered watch: " + watch);
+			watch.setTriggered(true);
+			itemWatchRepository.save(watch);
 		}
 	}
 
