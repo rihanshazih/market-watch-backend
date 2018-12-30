@@ -60,6 +60,7 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 		final List<ItemWatch> itemWatches = itemWatchRepository.findAll().stream()
 				.filter(w -> allCharacterIds.contains(w.getCharacterId()))
 				.filter(w -> !w.isMailSent() && w.isTriggered())
+				.sorted((o1, o2) -> o1.getTypeName().compareToIgnoreCase(o2.getTypeName()))
 				.collect(Collectors.toList());
 
 		LOG.info("Found " + itemWatches.size() + " watches that should receive a mail.");
@@ -71,18 +72,23 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 		LOG.info("Creating mail for " + characterIds.size() + " characters.");
 
 		for (Integer characterId : characterIds) {
-			process(characterId);
-		}
+			List<ItemWatch> watchesForCharacter = itemWatches.stream()
+					.filter(watch -> watch.getCharacterId() == characterId)
+					.collect(Collectors.toList());
 
-		itemWatches.forEach(w -> {
-					w.setMailSent(true);
-					itemWatchRepository.save(w);
-				});
+			for (int i = 0; i < watchesForCharacter.size(); i+=100) {
+				final int remaining = watchesForCharacter.size() - i;
+				int top = remaining > 100 ? 100 : remaining;
+				final List<ItemWatch> chunk = watchesForCharacter.subList(i, top + i);
+				LOG.info("Sending mail with " + chunk.size() + " watches to " + characterId);
+				process(characterId, chunk);
+			}
+		}
 	}
 
-	private void process(final int characterId) {
+	private void process(final int characterId, List<ItemWatch> watchesForCharacter) {
 		LOG.info("Creating mail for " + characterId);
-		final String text = buildText(characterId);
+		final String text = buildText(watchesForCharacter);
 		final Mail mail = createMail(characterId, text);
 		mailRepository.save(mail);
 	}
@@ -97,12 +103,7 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 		return mail;
 	}
 
-	private String buildText(final int characterId) {
-		// todo: move filtering to DB
-		final List<ItemWatch> itemWatches = itemWatchRepository.findByCharacterId(characterId).stream()
-				.filter(w -> !w.isMailSent() && w.isTriggered())
-				.sorted((o1, o2) -> o1.getTypeName().compareToIgnoreCase(o2.getTypeName()))
-				.collect(Collectors.toList());
+	private String buildText(List<ItemWatch> itemWatches) {
 		final List<Structure> structures = itemWatches.stream()
 				.map(ItemWatch::getLocationId).distinct()
 				.map(structureRepository::find)
@@ -147,6 +148,11 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 			// todo: section styling
 			builder.append("\n\n");
 		}
+
+		itemWatches.forEach(w -> {
+			w.setMailSent(true);
+			itemWatchRepository.save(w);
+		});
 
 		return builder.toString();
 	}
