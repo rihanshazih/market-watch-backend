@@ -64,7 +64,7 @@ provider:
               - function:${self:service}-${opt:stage, self:provider.stage}-*
 
 package:
-  artifact: target/market-watch-1.1.1.jar
+  artifact: target/market-watch-1.1.2.jar
 
 functions:
   login:
@@ -73,6 +73,7 @@ functions:
     - http:
         path: login
         method: get
+        cors: true
   deleteUser:
     handler: com.eve.marketwatch.api.DeleteUserHandler
     events:
@@ -80,6 +81,7 @@ functions:
         path: user
         method: delete
         cors: true
+        authorizer: publicAuthorizer
 
   addItemWatch:
     handler: com.eve.marketwatch.api.AddItemWatchHandler
@@ -88,6 +90,7 @@ functions:
         path: itemwatch
         method: put
         cors: true
+        authorizer: publicAuthorizer
   getItemWatches:
     handler: com.eve.marketwatch.api.GetItemWatchesHandler
     events:
@@ -95,6 +98,8 @@ functions:
           path: itemwatch
           method: get
           cors: true
+          authorizer: publicAuthorizer
+#  todo: merge deleteItemWatchHandlers to one accepting the id/all via a query param
   deleteItemWatch:
     handler: com.eve.marketwatch.api.DeleteItemWatchHandler
     events:
@@ -102,6 +107,7 @@ functions:
           path: itemwatch/{id}
           method: delete
           cors: true
+          authorizer: publicAuthorizer
   deleteItemWatches:
     handler: com.eve.marketwatch.api.DeleteItemWatchesHandler
     events:
@@ -109,12 +115,15 @@ functions:
           path: itemwatch
           method: delete
           cors: true
+          authorizer: publicAuthorizer
   searchItem:
     handler: com.eve.marketwatch.api.ItemSearchHandler
     events:
     - http:
         path: search
         method: get
+        cors: true
+        authorizer: publicAuthorizer
   searchStructure:
 #    todo: merge me with searchItem, e.g. one search handler that can be modified with a query param
     handler: com.eve.marketwatch.api.StructureSearchHandler
@@ -122,6 +131,8 @@ functions:
       - http:
           path: search-structure
           method: get
+          cors: true
+          authorizer: publicAuthorizer
   getStructureDetails:
     #    todo: merge me with searchItem, e.g. one search handler that can be modified with a query param
     handler: com.eve.marketwatch.api.StructureDetailsHandler
@@ -129,6 +140,8 @@ functions:
       - http:
           path: structure/id
           method: get
+          cors: true
+          authorizer: publicAuthorizer
   getMyMarkets:
     handler: com.eve.marketwatch.api.GetMyMarketsHandler
     events:
@@ -136,6 +149,7 @@ functions:
           path: markets
           method: get
           cors: true
+          authorizer: publicAuthorizer
 
   bulkMail:
     handler: com.eve.marketwatch.api.BulkNotificationHandler
@@ -143,18 +157,16 @@ functions:
       - http:
           path: admin/bulk
           method: post
+          authorizer: privateAuthorizer
     warmup: false
-    environment:
-      ADMIN_CHARACTER_ID: ${file(./config.${self:provider.stage}.json):adminCharacterId}
   resetWatches:
     handler: com.eve.marketwatch.api.ResetWatchesHandler
     events:
       - http:
           path: admin/resetWatches
           method: put
+          authorizer: privateAuthorizer
     warmup: false
-    environment:
-      ADMIN_CHARACTER_ID: ${file(./config.${self:provider.stage}.json):adminCharacterId}
 
   parseMarket:
     handler: com.eve.marketwatch.jobs.MarketParser
@@ -183,4 +195,13 @@ functions:
       MAIL_CLIENT_ID: ${file(./config.${self:provider.stage}.json):mailClientId}
       MAIL_CLIENT_SECRET: ${file(./config.${self:provider.stage}.json):mailClientSecret}
       MAIL_REFRESH_TOKEN: ${file(./config.${self:provider.stage}.json):mailRefreshToken}
+
+  publicAuthorizer:
+    handler: com.eve.marketwatch.api.Authorizer
+  privateAuthorizer:
+    handler: com.eve.marketwatch.api.Authorizer
+    warmup: false
+    environment:
+      ADMIN_CHARACTER_ID: ${file(./config.${self:provider.stage}.json):adminCharacterId}
+
 

@@ -35,8 +35,11 @@ public class SecurityService {
                 .compact();
     }
 
-    public Optional<Integer> getCharacterId(final String jws) {
+    public Optional<Integer> getCharacterId(String jws) {
         try {
+            if (jws.startsWith("Bearer")) {
+                jws = jws.replace("Bearer ", "");
+            }
             final Integer characterId = Jwts.parser().setSigningKey(key)
                     .parseClaimsJws(jws).getBody().get("characterId", Integer.class);
             return Optional.of(characterId);

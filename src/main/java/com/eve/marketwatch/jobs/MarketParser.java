@@ -96,6 +96,8 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
                 LOG.error(e);
             }
         }
+
+        LOG.info("Market parsing complete.");
     }
 
     private void processRegion(List<ItemSnapshot> itemSnapshots, List<ItemWatch> itemWatches, Integer regionId, List<Structure> regionStructures) throws BadRequestException {

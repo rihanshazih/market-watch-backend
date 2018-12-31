@@ -21,4 +21,12 @@ final class InputExtractor {
         return (String) queryParameters.get(param);
     }
 
+    static Integer getCharacterId(Map<String, Object> input) {
+        final HashMap authorizerParams = (HashMap) ((HashMap) input.get("requestContext")).get("authorizer");
+        if (null == authorizerParams) {
+            throw new RuntimeException("Missing authorizer info.");
+        }
+        return Integer.parseInt(authorizerParams.get("principalId").toString());
+    }
+
 }

@@ -10,7 +10,6 @@ import com.eve.marketwatch.model.esi.UniverseIdsResponse;
 import com.eve.marketwatch.model.evepraisal.EvepraisalItem;
 import com.eve.marketwatch.model.evepraisal.EvepraisalResponse;
 import com.eve.marketwatch.service.SecurityService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.GsonBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -19,14 +18,13 @@ import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Response;
-import java.io.IOException;
 import java.util.Date;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.eve.marketwatch.api.Util.parseBody;
 import static java.util.Collections.singletonList;
 
 public class AddItemWatchHandler implements RequestHandler<Map<String, Object>, ApiGatewayResponse> {
@@ -60,26 +58,7 @@ public class AddItemWatchHandler implements RequestHandler<Map<String, Object>, 
                     .build();
         }
 
-        final String token = InputExtractor.getQueryParam("token", input);
-        final Optional<Integer> optCharacterId = securityService.getCharacterId(token);
-        final int characterId;
-        if (optCharacterId.isPresent()) {
-            characterId = optCharacterId.get();
-        } else {
-            return ApiGatewayResponse.builder()
-                    .setStatusCode(401)
-                    .build();
-        }
-
-        final ItemWatch watch;
-        try {
-            watch = new ObjectMapper().readValue(input.get("body").toString(), ItemWatch.class);
-        } catch (IOException e) {
-            LOG.error("Failed to parse body", e);
-            return ApiGatewayResponse.builder()
-                    .setStatusCode(400)
-                    .build();
-        }
+        final ItemWatch watch = parseBody(ItemWatch.class, input);
 
         if (null == watch || null == watch.getTypeName() || watch.getTypeName().isEmpty()) {
             LOG.info("Bad ItemWatch: " + watch);
@@ -88,6 +67,7 @@ public class AddItemWatchHandler implements RequestHandler<Map<String, Object>, 
                     .build();
         }
 
+        final int characterId = InputExtractor.getCharacterId(input);
         watch.setCharacterId(characterId);
         watch.setCreated(new Date());
 

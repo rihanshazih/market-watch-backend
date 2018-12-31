@@ -48,17 +48,7 @@ public class GetStructureIdHandler implements RequestHandler<Map<String, Object>
 					.build();
 		}
 
-		final String token = InputExtractor.getQueryParam("token", input);
-		final Optional<Integer> optCharacterId = securityService.getCharacterId(token);
-		final int characterId;
-		if (optCharacterId.isPresent()) {
-			characterId = optCharacterId.get();
-		} else {
-			return ApiGatewayResponse.builder()
-					.setStatusCode(401)
-					.build();
-		}
-
+		final Integer characterId = InputExtractor.getCharacterId(input);
 		final String term = InputExtractor.getQueryParam("term", input);
 
 		// try to find the structure in our known data first

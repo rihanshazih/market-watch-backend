@@ -7,7 +7,6 @@ import com.eve.marketwatch.exceptions.UnknownUserException;
 import com.eve.marketwatch.model.dao.Structure;
 import com.eve.marketwatch.model.dao.StructureRepository;
 import com.eve.marketwatch.service.EveAuthService;
-import com.eve.marketwatch.service.SecurityService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -15,7 +14,6 @@ import javax.ws.rs.client.ClientBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -30,7 +28,6 @@ public class StructureSearchHandler implements RequestHandler<Map<String, Object
     private final javax.ws.rs.client.Client webClient = ClientBuilder.newClient();
     private final StructureRepository structureRepository = StructureRepository.getInstance();
     private final EveAuthService eveAuthService = new EveAuthService();
-    private final SecurityService securityService = new SecurityService();
 
 	@Override
 	public ApiGatewayResponse handleRequest(Map<String, Object> input, Context context) {
@@ -43,16 +40,6 @@ public class StructureSearchHandler implements RequestHandler<Map<String, Object
 					.build();
 		}
 
-		final String token = InputExtractor.getQueryParam("token", input);
-		final Optional<Integer> optCharacterId = securityService.getCharacterId(token);
-		final int characterId;
-		if (optCharacterId.isPresent()) {
-			characterId = optCharacterId.get();
-		} else {
-			return ApiGatewayResponse.builder()
-					.setStatusCode(401)
-					.build();
-		}
 
 		final String term = InputExtractor.getQueryParam("term", input);
 		if (term == null || term.length() < 4) {
@@ -63,6 +50,7 @@ public class StructureSearchHandler implements RequestHandler<Map<String, Object
 		}
 
 		final String accessToken;
+		final int characterId = InputExtractor.getCharacterId(input);
 		try {
 			accessToken = eveAuthService.getAccessToken(characterId);
 		} catch (BadRequestException | UnknownUserException e) {
