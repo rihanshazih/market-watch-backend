@@ -106,7 +106,7 @@ public class StructureResolver implements Callable<List<String>> {
         final List<Structure> resolvedStructures = collectStructures(futures);
 
         resolvedStructures.stream()
-                .filter(s -> !allKnownStructureIds.contains(s.getStructureId()))
+                .filter(structure -> allKnownStructures.stream().noneMatch(knownStructure -> knownStructure.equals(structure)))
                 .forEach(structureRepository::save);
 
         return resolvedStructures.stream()

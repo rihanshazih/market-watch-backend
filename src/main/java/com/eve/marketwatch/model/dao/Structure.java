@@ -3,6 +3,8 @@ package com.eve.marketwatch.model.dao;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
 
+import java.util.Objects;
+
 
 @DynamoDBTable(
         tableName = "eve_marketwatch_structure"
@@ -67,5 +69,19 @@ public class Structure {
 
     public void setRegionId(Integer regionId) {
         this.regionId = regionId;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Structure structure = (Structure) o;
+        return structureId == structure.structureId &&
+                Objects.equals(structureName, structure.structureName);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(structureId, structureName);
     }
 }
