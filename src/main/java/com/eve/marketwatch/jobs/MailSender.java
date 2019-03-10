@@ -62,15 +62,36 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 
 	@Override
 	public ApiGatewayResponse handleRequest(Map<String, Object> input, Context context) {
-		try {
-			doSend();
-		} catch (final MailFailed mailFailed) {
-			updateUserErrors(mailFailed);
-		}
-
+		doSend();
 		return ApiGatewayResponse.builder()
 				.setStatusCode(200)
 				.build();
+	}
+
+	void doSend() {
+		final List<Mail> mails = mailRepository.findByStatus(MailStatus.NEW);
+		if (mails.isEmpty()) {
+			LOG.info("No new mails to be sent.");
+		} else {
+			final Mail mail = mails.stream()
+					.sorted((o1, o2) -> o2.getPriority().compareTo(o1.getPriority()))
+					.collect(Collectors.toList()).get(0);
+
+			LOG.info("Processing mail " + mail.getId());
+
+			final MailRequest mailRequest = createMailRequest(mail);
+			try {
+				submitMailRequest(mailRequest);
+				mail.setMailStatus(MailStatus.SENT);
+				mail.setCreated(new Date());
+			} catch (final MailFailed mailFailed) {
+				updateUserErrors(mailFailed);
+				if (!mailFailed.isRetry()) {
+					mail.setMailStatus(MailStatus.FAILED);
+				}
+			}
+			mailRepository.save(mail);
+		}
 	}
 
 	private void updateUserErrors(MailFailed mailFailed) {
@@ -84,26 +105,11 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 		});
 	}
 
-	void doSend() throws MailFailed {
-		final List<Mail> mails = mailRepository.findByStatus(MailStatus.NEW);
-		if (mails.isEmpty()) {
-			LOG.info("No new mails to be sent.");
-		} else {
-			final Mail mail = mails.stream().sorted((o1, o2) -> o2.getPriority().compareTo(o1.getPriority())).collect(Collectors.toList()).get(0);
-			LOG.info("Processing mail " + mail.getId());
-			final MailRequest mailRequest = createMailRequest(mail.getSubject(), mail.getText(), mail.getRecipient());
-			submitMailRequest(mailRequest);
-			mail.setMailStatus(MailStatus.SENT);
-			mail.setCreated(new Date());
-			mailRepository.save(mail);
-		}
-	}
-
-	private MailRequest createMailRequest(final String subject, final String text, final int characterId) {
+	private MailRequest createMailRequest(final Mail mail) {
 		final MailRequest mailRequest = new MailRequest();
-		mailRequest.setRecipients(Collections.singletonList(new MailRecipient(characterId)));
-		mailRequest.setSubject(subject);
-		mailRequest.setBody(text);
+		mailRequest.setRecipients(Collections.singletonList(new MailRecipient(mail.getRecipient())));
+		mailRequest.setSubject(mail.getSubject());
+		mailRequest.setBody(mail.getText());
 		return mailRequest;
 	}
 
@@ -125,7 +131,10 @@ public class MailSender implements RequestHandler<Map<String, Object>, ApiGatewa
 		LOG.info(mailResponse.getStatus());
 		if (mailResponse.getStatus() != 201) {
 		    LOG.info(json);
-			throw new MailFailed(mailResponse.getStatus(), mailRequest.getRecipients().get(0).getRecipientId());
+			throw new MailFailed(mailResponse.getStatus(),
+					mailRequest.getRecipients().get(0).getRecipientId(),
+					// if the mail fails during downtime, retry it
+					mailResponse.getStatus() == 502 || mailResponse.getStatus() == 503);
 		}
 	}
 }
