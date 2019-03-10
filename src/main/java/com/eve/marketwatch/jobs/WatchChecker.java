@@ -56,11 +56,11 @@ public class WatchChecker implements RequestHandler<Map<String, Object>, ApiGate
 
 	private void checkWatch(List<ItemSnapshot> itemSnapshots, ItemWatch watch) {
 		for (ItemSnapshot snapshot : itemSnapshots) {
-			if (isSameLocationAndType(watch, snapshot)) {
+			if (isSameLocationAndType(watch, snapshot) && watch.isBuy() == snapshot.isBuy()) {
 
 				boolean activatedWatch = false;
 				final String comparator = watch.getComparator() == null ? "lt" : watch.getComparator();
-				LOG.info("Comparing " + comparator + " for " + watch.getTypeName() + " with " + snapshot.getAmount() + "/" + watch.getThreshold());
+				LOG.info("Comparing (buy=" + watch.isBuy() + ") " + comparator + " for " + watch.getTypeName() + " with " + snapshot.getAmount() + "/" + watch.getThreshold());
 				switch (comparator) {
 					case "le":
 						if (snapshot.getAmount() <= watch.getThreshold()) {

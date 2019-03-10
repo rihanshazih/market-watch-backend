@@ -19,6 +19,7 @@ public class ItemWatch {
     private String typeName;
     private long threshold;
     private boolean triggered;
+    private boolean isBuy;
     private boolean mailSent;
     private boolean isDisabled;
     private Date created;
@@ -37,6 +38,14 @@ public class ItemWatch {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public boolean isBuy() {
+        return isBuy;
+    }
+
+    public void setBuy(boolean buy) {
+        isBuy = buy;
     }
 
     public String getTypeName() {

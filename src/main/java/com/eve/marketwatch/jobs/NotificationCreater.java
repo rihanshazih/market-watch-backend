@@ -124,9 +124,15 @@ public class NotificationCreater implements RequestHandler<Map<String, Object>, 
 					.filter(w -> w.getLocationId() == structure.getStructureId()).collect(Collectors.toList());
 			for (final ItemWatch watch : marketWatches) {
 				// <url=showinfo:608>Atron</url>
+				if (watch.isBuy()) {
+					builder.append("Buy");
+				} else {
+					builder.append("Sell");
+				}
+				builder.append(" orders for ");
 				builder.append("<url=showinfo:").append(watch.getTypeId()).append(">")
 						.append(watch.getTypeName())
-						.append("</url> is ");
+						.append("</url> are ");
 
 				final String comparator = watch.getComparator() == null ? "lt" : watch.getComparator();
 				switch (comparator) {

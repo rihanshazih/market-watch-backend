@@ -110,7 +110,6 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         final List<MarketOrderResponse> regionMarketOrders = getRegionMarketOrders(regionId);
         final List<MarketOrderResponse> marketOrders = regionMarketOrders
                 .stream()
-                .filter(m -> !m.isBuyOrder())
                 .filter(m -> typeIds.contains(m.getTypeId()))
                 .collect(Collectors.toList());
 
@@ -120,8 +119,11 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
                     .filter(o -> itemWatches.stream().anyMatch(w -> w.getLocationId() == o.getLocationId()))
                     .collect(Collectors.toList());
 
-            final HashMap<Integer, Long> volumes = computeVolumes(structureMarketOrders);
-            writeSnapshots(itemSnapshots, structure.getStructureId(), volumes);
+            final HashMap<Integer, Long> sellVolumes = computeVolumes(filterOrderType(structureMarketOrders, false));
+            writeSnapshots(itemSnapshots, structure.getStructureId(), sellVolumes, false);
+
+            final HashMap<Integer, Long> buyVolumes = computeVolumes(filterOrderType(structureMarketOrders, true));
+            writeSnapshots(itemSnapshots, structure.getStructureId(), buyVolumes, true);
         }
     }
 
@@ -228,28 +230,37 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         final long locationId = structure.getStructureId();
         final List<MarketOrderResponse> marketOrders = getPlayerStructureMarketOrders(characterId, structure)
                 .stream()
-                .filter(m -> !m.isBuyOrder())
                 .filter(m -> typeIds.contains(m.getTypeId()))
                 .collect(Collectors.toList());
 
-        final HashMap<Integer, Long> volumes = computeVolumes(marketOrders);
+        final HashMap<Integer, Long> sellVolumes = computeVolumes(filterOrderType(marketOrders, false));
+        writeSnapshots(itemSnapshots, locationId, sellVolumes, false);
 
-        writeSnapshots(itemSnapshots, locationId, volumes);
+        final HashMap<Integer, Long> buyVolumes = computeVolumes(filterOrderType(marketOrders, true));
+        writeSnapshots(itemSnapshots, locationId, buyVolumes, true);
     }
 
-    private void writeSnapshots(List<ItemSnapshot> existingSnapshots, long locationId, HashMap<Integer, Long> volumes) {
+    private List<MarketOrderResponse> filterOrderType(List<MarketOrderResponse> marketOrders, boolean isBuy) {
+        return marketOrders.stream()
+                .filter(marketOrderResponse -> isBuy == marketOrderResponse.isBuyOrder())
+                .collect(Collectors.toList());
+    }
+
+    private void writeSnapshots(List<ItemSnapshot> existingSnapshots, long locationId, HashMap<Integer, Long> volumes, boolean isBuy) {
         for (final Map.Entry<Integer, Long> entry : volumes.entrySet()) {
             final int typeId = entry.getKey();
             final long amount = entry.getValue();
             final boolean alreadyExists = existingSnapshots.stream()
+                    .filter(w -> w.isBuy() == isBuy)
                     .filter(w -> w.getAmount() == amount)
                     .anyMatch(w -> w.getTypeId() == typeId && w.getLocationId() == locationId);
             if (!alreadyExists) {
                 final ItemSnapshot itemSnapshot = new ItemSnapshot();
-                itemSnapshot.setId(typeId + "-" + locationId);
+                itemSnapshot.setId(typeId + "-" + locationId + "-" + (isBuy ? "buy" : "sell"));
                 itemSnapshot.setTypeId(typeId);
                 itemSnapshot.setAmount(amount);
                 itemSnapshot.setLocationId(locationId);
+                itemSnapshot.setBuy(isBuy);
                 itemSnapshotRepository.save(itemSnapshot);
             }
         }
@@ -280,7 +291,6 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
     private List<MarketOrderResponse> getRegionMarketOrders(int regionId, int page) throws BadRequestException {
         final Response response = webClient.target(Constants.ESI_BASE_URL)
                 .path("/v1/markets/" + regionId + "/orders/")
-                .queryParam("order_type", "sell")
                 .queryParam("page", page)
                 .request()
                 .get();

@@ -12,6 +12,7 @@ public class ItemSnapshot {
     private long locationId;
     private int typeId;
     private long amount;
+    private boolean isBuy;
 
     @DynamoDBHashKey(
             attributeName = "id"
@@ -48,12 +49,22 @@ public class ItemSnapshot {
         this.amount = amount;
     }
 
+    public boolean isBuy() {
+        return isBuy;
+    }
+
+    public void setBuy(boolean buy) {
+        isBuy = buy;
+    }
+
     @Override
     public String toString() {
         return "ItemSnapshot{" +
-                "locationId=" + locationId +
+                "id='" + id + '\'' +
+                ", locationId=" + locationId +
                 ", typeId=" + typeId +
                 ", amount=" + amount +
+                ", isBuy=" + isBuy +
                 '}';
     }
 }
