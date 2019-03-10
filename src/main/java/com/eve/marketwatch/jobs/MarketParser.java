@@ -219,6 +219,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         final Mail mail = new Mail();
         mail.setCreated(new Date());
         mail.setMailStatus(MailStatus.NEW);
+        mail.setPriority(1);
         mail.setRecipient(user.getCharacterId());
         mail.setSubject("Eve Market Watch - Deactivated");
         mail.setText("Your account at <a href=\"https://eve-market-watch.firebaseapp.com\">https://eve-market-watch.firebaseapp.com</a> has been deactivated due to an " +
