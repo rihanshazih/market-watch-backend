@@ -151,6 +151,14 @@ functions:
           cors: true
           authorizer: publicAuthorizer
 
+  countMarkets:
+    handler: com.eve.marketwatch.api.CountMarkets
+    events:
+      - http:
+          path: admin/countMarkets
+          method: get
+          authorizer: privateAuthorizer
+    warmup: false
   bulkMail:
     handler: com.eve.marketwatch.api.BulkNotificationHandler
     events:
