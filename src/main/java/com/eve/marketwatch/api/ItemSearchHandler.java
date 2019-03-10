@@ -62,7 +62,7 @@ public class ItemSearchHandler implements RequestHandler<Map<String, Object>, Ap
 		final SearchResponse typeIds = new GsonBuilder().create().fromJson(json, SearchResponse.class);
 
 		final Response nameResponse = webClient.target(Constants.ESI_BASE_URL)
-				.path("/v2/universe/names/")
+				.path("/v3/universe/names/")
 				.request()
 				.post(Entity.entity(typeIds.getInventoryTypes(), "application/json"));
 
