@@ -168,6 +168,10 @@ functions:
           authorizer: privateAuthorizer
     warmup: false
 
+  updateDisabledWatches:
+    handler: com.eve.marketwatch.jobs.UpdateDisabledWatches
+    events:
+      - schedule: cron(10 * * * ? *)
   parseMarket:
     handler: com.eve.marketwatch.jobs.MarketParser
     events:

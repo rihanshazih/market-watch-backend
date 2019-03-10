@@ -73,7 +73,8 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
     void doParse() {
         final List<ItemSnapshot> itemSnapshots = itemSnapshotRepository.findAll();
 
-        final List<ItemWatch> itemWatches = itemWatchRepository.findAll();
+        final List<ItemWatch> itemWatches = itemWatchRepository.findAll().stream()
+                .filter(i -> !i.isDisabled()).collect(Collectors.toList());
         final Set<Long> locationIds = itemWatches.stream().map(ItemWatch::getLocationId).collect(Collectors.toSet());
 
         final List<Structure> structures = structureRepository.findAll().stream()
@@ -164,6 +165,9 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
                     LOG.warn("Got an invalid_token for " + characterId);
                     updateUserErrors(characterId);
                 }
+                if (e.getMessage().contains("Market access denied")) {
+                    disableWatchesForCharacter(itemWatches, structure, characterId);
+                }
 
                 LOG.warn("Failed to parse structure " + structure.getStructureId() + " with character "
                         + characterId + ": " + e.getMessage());
@@ -173,6 +177,15 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
         } else {
             LOG.warn("No character found for " + structure.getStructureId());
         }
+    }
+
+    private void disableWatchesForCharacter(List<ItemWatch> itemWatches, Structure structure, int characterId) {
+        LOG.info("Disabling watches for character " + characterId + " and structure " + structure.getStructureId());
+        itemWatches.stream()
+                .filter(w -> w.getCharacterId() == characterId)
+                .filter(w -> w.getLocationId() == structure.getStructureId())
+                .peek(w -> w.setDisabled(true))
+                .forEach(itemWatchRepository::save);
     }
 
     private void resetUserErrors(int characterId) {
@@ -310,7 +323,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
             return Arrays.asList(new GsonBuilder().create().fromJson(json, MarketOrderResponse[].class));
         } else {
             LOG.warn(json);
-            throw new BadRequestException("Failed to retrieve market orders for " + structure.getStructureId());
+            throw new BadRequestException("Failed to retrieve market orders for " + structure.getStructureId() + ": " + json);
         }
     }
 
@@ -388,6 +401,7 @@ public class MarketParser implements RequestHandler<Map<String, Object>, ApiGate
 
     private Optional<Integer> findCharacterWithAccess(final Structure structure, final List<ItemWatch> itemWatches) {
         return itemWatches.stream()
+                .filter(watch -> !watch.isDisabled())
                 .filter(watch -> watch.getLocationId() == structure.getStructureId())
                 .map(ItemWatch::getCharacterId)
                 .filter(characterId -> userRepository.find(characterId).isPresent())

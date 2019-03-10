@@ -20,6 +20,7 @@ public class ItemWatch {
     private long threshold;
     private boolean triggered;
     private boolean mailSent;
+    private boolean isDisabled;
     private Date created;
     private String comparator;
     // status process
@@ -126,5 +127,13 @@ public class ItemWatch {
                 ", triggered=" + triggered +
                 ", mailSent=" + mailSent +
                 '}';
+    }
+
+    public boolean isDisabled() {
+        return isDisabled;
+    }
+
+    public void setDisabled(boolean disabled) {
+        isDisabled = disabled;
     }
 }
