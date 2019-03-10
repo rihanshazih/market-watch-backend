@@ -96,7 +96,7 @@ public class AddItemWatchHandler implements RequestHandler<Map<String, Object>, 
             evepraisalPath += ".json";
         }
 
-        final Response appraisalResponse = webClient.target("http://evepraisal.com")
+        final Response appraisalResponse = webClient.target("https://evepraisal.com")
                 .path("/a/" + evepraisalPath)
                 .request()
                 .get();
@@ -125,6 +125,7 @@ public class AddItemWatchHandler implements RequestHandler<Map<String, Object>, 
             itemWatch.setTypeName(item.getTypeName());
             itemWatch.setThreshold(item.getQuantity());
             itemWatch.setCreated(watchRequest.getCreated());
+            itemWatch.setBuy(watchRequest.isBuy());
             itemWatchRepository.save(itemWatch);
         }
     }
