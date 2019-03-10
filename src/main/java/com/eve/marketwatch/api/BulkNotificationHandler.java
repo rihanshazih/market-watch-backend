@@ -41,7 +41,7 @@ public class BulkNotificationHandler implements RequestHandler<Map<String, Objec
 
 	private void saveMail(BulkMailRequest mailRequest, User u) {
 		final Mail mail = new Mail();
-		mail.setPriority(1);
+		mail.setPriority(2);
 		mail.setRecipient(u.getCharacterId());
 		mail.setMailStatus(MailStatus.NEW);
 		mail.setSubject(mailRequest.getSubject());
